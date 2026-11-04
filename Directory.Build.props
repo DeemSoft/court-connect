@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
+    <RootNamespace>DeemSoft.$(MSBuildProjectName)</RootNamespace>
+    <AssemblyName>DeemSoft.$(MSBuildProjectName)</AssemblyName>
   </PropertyGroup>
 </Project>

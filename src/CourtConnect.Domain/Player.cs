@@ -2,14 +2,14 @@ namespace DeemSoft.CourtConnect.Domain;
 
 public sealed class Player
 {
-    // Un jugador siempre debe tener datos mínimos válidos y cumplir la edad mínima de la plataforma.
-    public Player(string nickname, string fullName, DateOnly dateOfBirth, string email)
+    // La fecha de alta se recibe explícitamente para que la validación sea determinista y fácil de probar.
+    public Player(string nickname, string fullName, DateOnly dateOfBirth, string email, DateOnly registeredOn)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nickname);
         ArgumentException.ThrowIfNullOrWhiteSpace(fullName);
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
 
-        if (GetAgeOn(DateTime.Today, dateOfBirth) < 16)
+        if (GetAgeOn(registeredOn, dateOfBirth) < 16)
         {
             throw new ArgumentOutOfRangeException(nameof(dateOfBirth), "Players must be at least 16 years old.");
         }
@@ -30,19 +30,17 @@ public sealed class Player
 
     public string Email { get; private set; }
 
-    // Calcula la edad del jugador en una fecha concreta, útil para validar partidos por edad.
-    public int GetAgeOn(DateTime comparisonDate)
+    // Hace el cálculo de edad teniendo en cuenta el cumpleaños real en esa fecha.
+    public int GetAgeOn(DateOnly comparisonDate)
     {
         return GetAgeOn(comparisonDate, DateOfBirth);
     }
 
-    // Hace el cálculo de edad teniendo en cuenta el cumpleaños real en esa fecha.
-    private static int GetAgeOn(DateTime comparisonDate, DateOnly dateOfBirth)
+    private static int GetAgeOn(DateOnly comparisonDate, DateOnly dateOfBirth)
     {
-        var currentDate = DateOnly.FromDateTime(comparisonDate);
-        var age = currentDate.Year - dateOfBirth.Year;
+        var age = comparisonDate.Year - dateOfBirth.Year;
 
-        if (currentDate < dateOfBirth.AddYears(age))
+        if (comparisonDate < dateOfBirth.AddYears(age))
         {
             age--;
         }
