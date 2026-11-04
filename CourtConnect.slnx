@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CourtConnect.Domain/CourtConnect.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CourtConnect.Domain.Tests/CourtConnect.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
