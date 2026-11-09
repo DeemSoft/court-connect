@@ -36,13 +36,18 @@ public sealed class GameConfiguration : IEntityTypeConfiguration<Game>
             .HasMaxLength(20)
             .IsRequired();
 
-        // La colección se gestiona dentro de Game; la relación se configura una sola vez en RegistrationConfiguration.
-        builder.Ignore(game => game.Registrations);
-
         builder.HasOne(game => game.Court)
             .WithMany()
             .HasForeignKey("CourtId")
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(game => game.Registrations)
+            .WithOne()
+            .HasForeignKey(registration => registration.GameId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(game => game.Registrations)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex("CourtId");
     }

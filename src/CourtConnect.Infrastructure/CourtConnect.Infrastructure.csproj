@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../CourtConnect.Domain/CourtConnect.Domain.csproj" />
+    <ProjectReference Include="..\CourtConnect.Application\CourtConnect.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

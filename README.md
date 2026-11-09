@@ -4,7 +4,7 @@ Aplicación de práctica para organizar partidos de baloncesto callejero: cancha
 
 ## Estado
 
-El dominio ya está implementado y el ejercicio 2 añade la capa de infraestructura con EF Core y la API de arranque para la base de datos.
+El dominio, la persistencia con EF Core y los endpoints REST principales están implementados. La API todavía no incluye autenticación.
 
 ## Desarrollo
 
@@ -32,6 +32,16 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,
 ```
 
 No se guarda ninguna contraseña en el repositorio.
+
+## API local
+
+Con SQL Server iniciado y la cadena de conexión configurada, arranca la API con:
+
+```powershell
+dotnet run --project src/CourtConnect.Api
+```
+
+En Development, el documento OpenAPI está disponible en `http://localhost:5258/openapi/v1.json`. Las peticiones de ejemplo y algunos casos de error están en [`src/CourtConnect.Api/CourtConnect.Api.http`](src/CourtConnect.Api/CourtConnect.Api.http).
 
 ## Dominio
 
