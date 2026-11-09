@@ -9,6 +9,11 @@ public enum GameStatus
 
 public sealed class Game
 {
+    // EF Core lo usa al materializar partidos desde la base de datos.
+    private Game()
+    {
+    }
+
     // El partido gestiona la lista de inscripciones y mantiene las plazas disponibles.
     private readonly List<Registration> _registrations = [];
 
@@ -52,19 +57,19 @@ public sealed class Game
         Status = status;
     }
 
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public Court Court { get; }
+    public Court Court { get; private set; } = null!;
 
-    public DateTimeOffset StartAt { get; }
+    public DateTimeOffset StartAt { get; private set; }
 
-    public TimeSpan Duration { get; }
+    public TimeSpan Duration { get; private set; }
 
-    public int Capacity { get; }
+    public int Capacity { get; private set; }
 
-    public int MinimumAge { get; }
+    public int MinimumAge { get; private set; }
 
-    public decimal PricePerPlayer { get; }
+    public decimal PricePerPlayer { get; private set; }
 
     public GameStatus Status { get; private set; }
 

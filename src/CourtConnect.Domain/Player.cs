@@ -2,6 +2,11 @@ namespace DeemSoft.CourtConnect.Domain;
 
 public sealed class Player
 {
+    // EF Core lo usa al materializar jugadores; el alta normal sigue validando los datos y la edad.
+    private Player()
+    {
+    }
+
     // La fecha de alta se recibe explícitamente para que la validación sea determinista y fácil de probar.
     public Player(string nickname, string fullName, DateOnly dateOfBirth, string email, DateOnly registeredOn)
     {
@@ -20,15 +25,15 @@ public sealed class Player
         Email = email.Trim();
     }
 
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public string Nickname { get; private set; }
+    public string Nickname { get; private set; } = string.Empty;
 
-    public string FullName { get; private set; }
+    public string FullName { get; private set; } = string.Empty;
 
     public DateOnly DateOfBirth { get; private set; }
 
-    public string Email { get; private set; }
+    public string Email { get; private set; } = string.Empty;
 
     // Hace el cálculo de edad teniendo en cuenta el cumpleaños real en esa fecha.
     public int GetAgeOn(DateOnly comparisonDate)

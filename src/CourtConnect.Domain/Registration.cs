@@ -8,6 +8,11 @@ public enum RegistrationStatus
 
 public sealed class Registration
 {
+    // EF Core lo usa al materializar inscripciones desde la base de datos.
+    private Registration()
+    {
+    }
+
     // La inscripción conecta un jugador con un partido concreto y conserva el importe registrado en el momento de apuntarse.
     internal Registration(Game game, Player player, DateTimeOffset createdAt, decimal amount)
     {
@@ -21,15 +26,15 @@ public sealed class Registration
         Status = RegistrationStatus.Confirmed;
     }
 
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public Guid GameId { get; }
+    public Guid GameId { get; private set; }
 
-    public Guid PlayerId { get; }
+    public Guid PlayerId { get; private set; }
 
-    public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
-    public decimal Amount { get; }
+    public decimal Amount { get; private set; }
 
     public RegistrationStatus Status { get; private set; }
 
