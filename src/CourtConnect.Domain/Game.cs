@@ -9,10 +9,15 @@ public enum GameStatus
 
 public sealed class Game
 {
+    // EF Core lo usa al materializar partidos desde la base de datos.
+    private Game()
+    {
+    }
+
     // El partido gestiona la lista de inscripciones y mantiene las plazas disponibles.
     private readonly List<Registration> _registrations = [];
 
-    public Game(Court court, DateTime startAt, TimeSpan duration, int capacity, int minimumAge, decimal pricePerPlayer, GameStatus status = GameStatus.Open)
+    public Game(Court court, DateTimeOffset startAt, TimeSpan duration, int capacity, int minimumAge, decimal pricePerPlayer, GameStatus status = GameStatus.Open)
     {
         ArgumentNullException.ThrowIfNull(court);
 
@@ -31,6 +36,18 @@ public sealed class Game
             throw new ArgumentOutOfRangeException(nameof(duration), "The duration must be positive.");
         }
 
+        // El precio puede ser cero para una cancha pública, pero nunca negativo.
+        if (pricePerPlayer < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pricePerPlayer), "The price per player cannot be negative.");
+        }
+
+        // Evita aceptar valores numéricos que no correspondan a ningún estado definido.
+        if (!Enum.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), "The game status is invalid.");
+        }
+
         Court = court;
         StartAt = startAt;
         Duration = duration;
@@ -40,26 +57,26 @@ public sealed class Game
         Status = status;
     }
 
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.NewGuid();
 
-    public Court Court { get; }
+    public Court Court { get; private set; } = null!;
 
-    public DateTime StartAt { get; }
+    public DateTimeOffset StartAt { get; private set; }
 
-    public TimeSpan Duration { get; }
+    public TimeSpan Duration { get; private set; }
 
-    public int Capacity { get; }
+    public int Capacity { get; private set; }
 
-    public int MinimumAge { get; }
+    public int MinimumAge { get; private set; }
 
-    public decimal PricePerPlayer { get; }
+    public decimal PricePerPlayer { get; private set; }
 
     public GameStatus Status { get; private set; }
 
     public IReadOnlyCollection<Registration> Registrations => _registrations.AsReadOnly();
 
     // Un jugador solo puede apuntarse mientras el partido está abierto y antes de que empiece.
-    public Registration Register(Player player, DateTime registrationDate)
+    public Registration Register(Player player, DateTimeOffset registrationDate)
     {
         ArgumentNullException.ThrowIfNull(player);
 
@@ -73,7 +90,8 @@ public sealed class Game
             throw new InvalidOperationException("Registrations must be created before the game starts.");
         }
 
-        if (player.GetAgeOn(StartAt) < MinimumAge)
+        // DateTime conserva la hora local del desplazamiento de StartAt para calcular la edad en la fecha del partido.
+        if (player.GetAgeOn(DateOnly.FromDateTime(StartAt.DateTime)) < MinimumAge)
         {
             throw new InvalidOperationException("The player does not meet the minimum age for this game.");
         }
@@ -94,7 +112,7 @@ public sealed class Game
     }
 
     // Cancelar una inscripción libera la plaza, pero solo antes de que empiece el partido y solo si pertenece a este juego.
-    public void CancelRegistration(Registration registration, DateTime cancellationDate)
+    public void CancelRegistration(Registration registration, DateTimeOffset cancellationDate)
     {
         ArgumentNullException.ThrowIfNull(registration);
 

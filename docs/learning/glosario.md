@@ -6,6 +6,19 @@ Términos profesionales que aparecen en los enunciados, explicados en lenguaje s
 
 No confundir con el glosario del **dominio** (`Game` = partido, `Registration` = inscripción…), que va en `docs/domain.md`.
 
+## Términos del ejercicio 1 — borrador para reescribir
+
+Reescribe estas definiciones con tus palabras y añade un ejemplo concreto de tu código antes de entregar el ejercicio.
+
+| Término | Borrador | Ejemplo del proyecto |
+| --- | --- | --- |
+| Dominio | Las reglas y conceptos del problema que resuelve el programa, independientemente de la web o la base de datos. | `Game.Register` decide si un jugador puede apuntarse. |
+| Entidad | Objeto con identidad propia que puede cambiar de estado sin dejar de ser el mismo objeto. | `Registration.Id` identifica una inscripción que pasa de `Confirmed` a `Cancelled`. |
+| Regla de negocio | Condición que el negocio exige cumplir para que una acción sea válida. | `Game` no admite más inscripciones activas que plazas. |
+| Capa | Parte del programa con una responsabilidad definida y dependencias controladas. | `CourtConnect.Domain` contiene las reglas y no referencia EF Core. |
+| Dependencia entre proyectos | Relación por la que un proyecto puede usar tipos de otro proyecto. | El proyecto de tests referencia `CourtConnect.Domain`. |
+| Clase frente a record | Una clase representa aquí una entidad con identidad; un record compara principalmente sus datos. | `Game` es una clase porque dos partidos con los mismos datos siguen siendo partidos distintos. |
+
 ## Arquitectura y diseño
 
 | Término | Qué es |

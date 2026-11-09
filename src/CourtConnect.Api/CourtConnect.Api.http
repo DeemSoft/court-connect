@@ -1,0 +1,6 @@
+@CourtConnect.Api_HostAddress = http://localhost:5258
+
+GET {{CourtConnect.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
