@@ -15,6 +15,12 @@ dotnet build CourtConnect.slnx
 dotnet test CourtConnect.slnx
 ```
 
+Las pruebas de integración arrancan su propio SQL Server temporal con Testcontainers, así que Docker Desktop debe estar en ejecución. Para recoger cobertura excluyendo código generado:
+
+```powershell
+dotnet test CourtConnect.slnx --settings coverlet.runsettings --collect:"XPlat Code Coverage"
+```
+
 `global.json` selecciona el SDK 10.0.403 y permite avanzar a otra versión de la misma línea 10.0 cuando sea necesario.
 
 ## Base de datos local
