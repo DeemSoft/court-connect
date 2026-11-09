@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../CourtConnect.Infrastructure/CourtConnect.Infrastructure.csproj" />
+    <ProjectReference Include="..\CourtConnect.Application\CourtConnect.Application.csproj" />
   </ItemGroup>
 
 </Project>

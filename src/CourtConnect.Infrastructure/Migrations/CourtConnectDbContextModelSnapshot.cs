@@ -100,7 +100,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                             Duration = new TimeSpan(0, 1, 30, 0, 0),
                             MinimumAge = 16,
                             PricePerPlayer = 12.50m,
-                            StartAt = new DateTimeOffset(new DateTime(2026, 1, 12, 18, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            StartAt = new DateTimeOffset(new DateTime(2027, 1, 12, 18, 30, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             Status = "Open"
                         },
                         new
@@ -111,7 +111,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                             Duration = new TimeSpan(0, 2, 0, 0, 0),
                             MinimumAge = 18,
                             PricePerPlayer = 15m,
-                            StartAt = new DateTimeOffset(new DateTime(2026, 1, 15, 20, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            StartAt = new DateTimeOffset(new DateTime(2027, 1, 15, 20, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             Status = "Open"
                         },
                         new
@@ -122,7 +122,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                             Duration = new TimeSpan(0, 1, 0, 0, 0),
                             MinimumAge = 16,
                             PricePerPlayer = 10m,
-                            StartAt = new DateTimeOffset(new DateTime(2026, 1, 10, 20, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            StartAt = new DateTimeOffset(new DateTime(2027, 1, 10, 20, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             Status = "Closed"
                         });
                 });
@@ -238,7 +238,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                         {
                             Id = new Guid("11111111-0001-0000-0000-000000000001"),
                             Amount = 12.50m,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 3, 10, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 12, 3, 10, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             GameId = new Guid("33333333-3333-3333-3333-333333333333"),
                             PlayerId = new Guid("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
                             Status = "Confirmed"
@@ -247,7 +247,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                         {
                             Id = new Guid("11111111-0001-0000-0000-000000000002"),
                             Amount = 12.50m,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 4, 12, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 12, 4, 12, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             GameId = new Guid("33333333-3333-3333-3333-333333333333"),
                             PlayerId = new Guid("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
                             Status = "Confirmed"
@@ -256,7 +256,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                         {
                             Id = new Guid("11111111-0001-0000-0000-000000000003"),
                             Amount = 15m,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 5, 18, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 12, 5, 18, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             GameId = new Guid("44444444-4444-4444-4444-444444444444"),
                             PlayerId = new Guid("cccccccc-cccc-cccc-cccc-cccccccccccc"),
                             Status = "Confirmed"
@@ -265,7 +265,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                         {
                             Id = new Guid("11111111-0001-0000-0000-000000000004"),
                             Amount = 15m,
-                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 5, 19, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 12, 5, 19, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 1, 0, 0, 0)),
                             GameId = new Guid("44444444-4444-4444-4444-444444444444"),
                             PlayerId = new Guid("dddddddd-dddd-dddd-dddd-dddddddddddd"),
                             Status = "Confirmed"
@@ -286,7 +286,7 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
             modelBuilder.Entity("DeemSoft.CourtConnect.Domain.Registration", b =>
                 {
                     b.HasOne("DeemSoft.CourtConnect.Domain.Game", null)
-                        .WithMany()
+                        .WithMany("Registrations")
                         .HasForeignKey("GameId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -296,6 +296,11 @@ namespace DeemSoft.CourtConnect.Infrastructure.Migrations
                         .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("DeemSoft.CourtConnect.Domain.Game", b =>
+                {
+                    b.Navigation("Registrations");
                 });
 #pragma warning restore 612, 618
         }

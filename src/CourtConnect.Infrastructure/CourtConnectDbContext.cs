@@ -53,9 +53,9 @@ public sealed class CourtConnectDbContext : DbContext
             new { Id = playerSaraId, Nickname = "sara", FullName = "Sara Valls", DateOfBirth = new DateOnly(2003, 2, 14), Email = "sara@example.com" });
 
         modelBuilder.Entity<Game>().HasData(
-            new { Id = gameOpenId, CourtId = courtCentralId, StartAt = new DateTimeOffset(2026, 1, 12, 18, 30, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(90), Capacity = 4, MinimumAge = 16, PricePerPlayer = 12.50m, Status = GameStatus.Open },
-            new { Id = gameFullId, CourtId = courtNorthId, StartAt = new DateTimeOffset(2026, 1, 15, 20, 0, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(120), Capacity = 2, MinimumAge = 18, PricePerPlayer = 15m, Status = GameStatus.Open },
-            new { Id = gameClosedId, CourtId = courtCentralId, StartAt = new DateTimeOffset(2026, 1, 10, 20, 0, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(60), Capacity = 4, MinimumAge = 16, PricePerPlayer = 10m, Status = GameStatus.Closed });
+            new { Id = gameOpenId, CourtId = courtCentralId, StartAt = new DateTimeOffset(2027, 1, 12, 18, 30, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(90), Capacity = 4, MinimumAge = 16, PricePerPlayer = 12.50m, Status = GameStatus.Open },
+            new { Id = gameFullId, CourtId = courtNorthId, StartAt = new DateTimeOffset(2027, 1, 15, 20, 0, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(120), Capacity = 2, MinimumAge = 18, PricePerPlayer = 15m, Status = GameStatus.Open },
+            new { Id = gameClosedId, CourtId = courtCentralId, StartAt = new DateTimeOffset(2027, 1, 10, 20, 0, 0, TimeSpan.FromHours(1)), Duration = TimeSpan.FromMinutes(60), Capacity = 4, MinimumAge = 16, PricePerPlayer = 10m, Status = GameStatus.Closed });
 
         var registrationOpenAId = Guid.Parse("11111111-0001-0000-0000-000000000001");
         var registrationOpenBId = Guid.Parse("11111111-0001-0000-0000-000000000002");
@@ -63,9 +63,9 @@ public sealed class CourtConnectDbContext : DbContext
         var registrationFullBId = Guid.Parse("11111111-0001-0000-0000-000000000004");
 
         modelBuilder.Entity<Registration>().HasData(
-            new { Id = registrationOpenAId, GameId = gameOpenId, PlayerId = playerMariaId, CreatedAt = new DateTimeOffset(2026, 1, 3, 10, 0, 0, TimeSpan.FromHours(1)), Amount = 12.50m, Status = RegistrationStatus.Confirmed },
-            new { Id = registrationOpenBId, GameId = gameOpenId, PlayerId = playerPauId, CreatedAt = new DateTimeOffset(2026, 1, 4, 12, 0, 0, TimeSpan.FromHours(1)), Amount = 12.50m, Status = RegistrationStatus.Confirmed },
-            new { Id = registrationFullAId, GameId = gameFullId, PlayerId = playerIreneId, CreatedAt = new DateTimeOffset(2026, 1, 5, 18, 0, 0, TimeSpan.FromHours(1)), Amount = 15m, Status = RegistrationStatus.Confirmed },
-            new { Id = registrationFullBId, GameId = gameFullId, PlayerId = playerLeoId, CreatedAt = new DateTimeOffset(2026, 1, 5, 19, 0, 0, TimeSpan.FromHours(1)), Amount = 15m, Status = RegistrationStatus.Confirmed });
+            new { Id = registrationOpenAId, GameId = gameOpenId, PlayerId = playerMariaId, CreatedAt = new DateTimeOffset(2026, 12, 3, 10, 0, 0, TimeSpan.FromHours(1)), Amount = 12.50m, Status = RegistrationStatus.Confirmed },
+            new { Id = registrationOpenBId, GameId = gameOpenId, PlayerId = playerPauId, CreatedAt = new DateTimeOffset(2026, 12, 4, 12, 0, 0, TimeSpan.FromHours(1)), Amount = 12.50m, Status = RegistrationStatus.Confirmed },
+            new { Id = registrationFullAId, GameId = gameFullId, PlayerId = playerIreneId, CreatedAt = new DateTimeOffset(2026, 12, 5, 18, 0, 0, TimeSpan.FromHours(1)), Amount = 15m, Status = RegistrationStatus.Confirmed },
+            new { Id = registrationFullBId, GameId = gameFullId, PlayerId = playerLeoId, CreatedAt = new DateTimeOffset(2026, 12, 5, 19, 0, 0, TimeSpan.FromHours(1)), Amount = 15m, Status = RegistrationStatus.Confirmed });
     }
 }

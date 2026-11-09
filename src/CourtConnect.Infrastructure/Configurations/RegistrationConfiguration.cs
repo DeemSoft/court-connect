@@ -37,9 +37,5 @@ public sealed class RegistrationConfiguration : IEntityTypeConfiguration<Registr
             .HasForeignKey(registration => registration.PlayerId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<Game>()
-            .WithMany()
-            .HasForeignKey(registration => registration.GameId)
-            .OnDelete(DeleteBehavior.Cascade);
     }
 }

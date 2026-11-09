@@ -1,6 +1,122 @@
 @CourtConnect.Api_HostAddress = http://localhost:5258
 
-GET {{CourtConnect.Api_HostAddress}}/weatherforecast/
+### Listar partidos abiertos y futuros
+GET {{CourtConnect.Api_HostAddress}}/games
 Accept: application/json
 
-###
+### Ver partido existente
+GET {{CourtConnect.Api_HostAddress}}/games/33333333-3333-3333-3333-333333333333
+Accept: application/json
+
+### Partido inexistente (404)
+GET {{CourtConnect.Api_HostAddress}}/games/00000000-0000-0000-0000-000000000001
+Accept: application/json
+
+### Crear cancha (201)
+POST {{CourtConnect.Api_HostAddress}}/courts
+Content-Type: application/json
+
+{
+  "name": "Cancha de pruebas",
+  "location": "Barcelona"
+}
+
+### Crear cancha inválida (400)
+POST {{CourtConnect.Api_HostAddress}}/courts
+Content-Type: application/json
+
+{
+  "name": "",
+  "location": "Barcelona"
+}
+
+### Crear partido (201; utiliza una cancha existente)
+# @name createGame
+POST {{CourtConnect.Api_HostAddress}}/games
+Content-Type: application/json
+
+{
+  "courtId": "11111111-1111-1111-1111-111111111111",
+  "startAt": "2027-02-01T18:00:00+01:00",
+  "durationMinutes": 90,
+  "capacity": 4,
+  "minimumAge": 16,
+  "pricePerPlayer": 10
+}
+
+@newGameId = {{createGame.response.body.$.id}}
+
+### Crear partido con cancha inexistente (404)
+POST {{CourtConnect.Api_HostAddress}}/games
+Content-Type: application/json
+
+{
+  "courtId": "00000000-0000-0000-0000-000000000001",
+  "startAt": "2027-02-01T18:00:00+01:00",
+  "durationMinutes": 90,
+  "capacity": 4,
+  "minimumAge": 16,
+  "pricePerPlayer": 10
+}
+
+### Crear jugador (201)
+# @name createPlayer
+POST {{CourtConnect.Api_HostAddress}}/players
+Content-Type: application/json
+
+{
+  "nickname": "nuevo-jugador",
+  "fullName": "Jugador de Prueba",
+  "dateOfBirth": "2000-01-01",
+  "email": "nuevo@example.com"
+}
+
+@newPlayerId = {{createPlayer.response.body.$.id}}
+
+### Crear jugador con apodo repetido (409)
+POST {{CourtConnect.Api_HostAddress}}/players
+Content-Type: application/json
+
+{
+  "nickname": "maria",
+  "fullName": "Otra Maria",
+  "dateOfBirth": "2000-01-01",
+  "email": "otra-maria@example.com"
+}
+
+### Ver jugador existente
+GET {{CourtConnect.Api_HostAddress}}/players/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+Accept: application/json
+
+### Jugador inexistente (404)
+GET {{CourtConnect.Api_HostAddress}}/players/00000000-0000-0000-0000-000000000001
+Accept: application/json
+
+### Crear inscripción (201)
+# @name createRegistration
+POST {{CourtConnect.Api_HostAddress}}/games/{{newGameId}}/registrations
+Content-Type: application/json
+
+{
+  "playerId": "{{newPlayerId}}"
+}
+
+@registrationId = {{createRegistration.response.body.$.id}}
+
+### Ver inscripciones del partido creado
+GET {{CourtConnect.Api_HostAddress}}/games/{{newGameId}}/registrations
+Accept: application/json
+
+### Inscripción duplicada (409)
+POST {{CourtConnect.Api_HostAddress}}/games/33333333-3333-3333-3333-333333333333/registrations
+Content-Type: application/json
+
+{
+  "playerId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+}
+
+### Cancelar inscripción creada arriba (204)
+POST {{CourtConnect.Api_HostAddress}}/registrations/{{registrationId}}/cancel
+
+### Inscripción inexistente al cancelar (404)
+POST {{CourtConnect.Api_HostAddress}}/registrations/00000000-0000-0000-0000-000000000001/cancel
