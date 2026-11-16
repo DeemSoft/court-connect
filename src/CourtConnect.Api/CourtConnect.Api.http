@@ -1,19 +1,19 @@
-@CourtConnect.Api_HostAddress = http://localhost:5258
+@apiHost = http://localhost:5258
 
 ### Listar partidos abiertos y futuros
-GET {{CourtConnect.Api_HostAddress}}/games
+GET {{apiHost}}/games
 Accept: application/json
 
 ### Ver partido existente
-GET {{CourtConnect.Api_HostAddress}}/games/33333333-3333-3333-3333-333333333333
+GET {{apiHost}}/games/33333333-3333-3333-3333-333333333333
 Accept: application/json
 
 ### Partido inexistente (404)
-GET {{CourtConnect.Api_HostAddress}}/games/00000000-0000-0000-0000-000000000001
+GET {{apiHost}}/games/00000000-0000-0000-0000-000000000001
 Accept: application/json
 
 ### Crear cancha (201)
-POST {{CourtConnect.Api_HostAddress}}/courts
+POST {{apiHost}}/courts
 Content-Type: application/json
 
 {
@@ -22,7 +22,7 @@ Content-Type: application/json
 }
 
 ### Crear cancha inválida (400)
-POST {{CourtConnect.Api_HostAddress}}/courts
+POST {{apiHost}}/courts
 Content-Type: application/json
 
 {
@@ -32,27 +32,28 @@ Content-Type: application/json
 
 ### Crear partido (201; utiliza una cancha existente)
 # @name createGame
-POST {{CourtConnect.Api_HostAddress}}/games
+POST {{apiHost}}/games
 Content-Type: application/json
 
 {
   "courtId": "11111111-1111-1111-1111-111111111111",
-  "startAt": "2027-02-01T18:00:00+01:00",
+  "startAt": "2030-02-01T18:00:00+01:00",
   "durationMinutes": 90,
   "capacity": 4,
   "minimumAge": 16,
   "pricePerPlayer": 10
 }
 
+###
 @newGameId = {{createGame.response.body.$.id}}
 
 ### Crear partido con cancha inexistente (404)
-POST {{CourtConnect.Api_HostAddress}}/games
+POST {{apiHost}}/games
 Content-Type: application/json
 
 {
   "courtId": "00000000-0000-0000-0000-000000000001",
-  "startAt": "2027-02-01T18:00:00+01:00",
+  "startAt": "2030-02-01T18:00:00+01:00",
   "durationMinutes": 90,
   "capacity": 4,
   "minimumAge": 16,
@@ -61,20 +62,21 @@ Content-Type: application/json
 
 ### Crear jugador (201)
 # @name createPlayer
-POST {{CourtConnect.Api_HostAddress}}/players
+POST {{apiHost}}/players
 Content-Type: application/json
 
 {
-  "nickname": "nuevo-jugador",
+  "nickname": "nuevo-{{$guid}}",
   "fullName": "Jugador de Prueba",
   "dateOfBirth": "2000-01-01",
-  "email": "nuevo@example.com"
+  "email": "nuevo-{{$guid}}@example.com"
 }
 
+###
 @newPlayerId = {{createPlayer.response.body.$.id}}
 
 ### Crear jugador con apodo repetido (409)
-POST {{CourtConnect.Api_HostAddress}}/players
+POST {{apiHost}}/players
 Content-Type: application/json
 
 {
@@ -85,30 +87,31 @@ Content-Type: application/json
 }
 
 ### Ver jugador existente
-GET {{CourtConnect.Api_HostAddress}}/players/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+GET {{apiHost}}/players/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
 Accept: application/json
 
 ### Jugador inexistente (404)
-GET {{CourtConnect.Api_HostAddress}}/players/00000000-0000-0000-0000-000000000001
+GET {{apiHost}}/players/00000000-0000-0000-0000-000000000001
 Accept: application/json
 
 ### Crear inscripción (201)
 # @name createRegistration
-POST {{CourtConnect.Api_HostAddress}}/games/{{newGameId}}/registrations
+POST {{apiHost}}/games/{{newGameId}}/registrations
 Content-Type: application/json
 
 {
   "playerId": "{{newPlayerId}}"
 }
 
+###
 @registrationId = {{createRegistration.response.body.$.id}}
 
 ### Ver inscripciones del partido creado
-GET {{CourtConnect.Api_HostAddress}}/games/{{newGameId}}/registrations
+GET {{apiHost}}/games/{{newGameId}}/registrations
 Accept: application/json
 
 ### Inscripción duplicada (409)
-POST {{CourtConnect.Api_HostAddress}}/games/33333333-3333-3333-3333-333333333333/registrations
+POST {{apiHost}}/games/33333333-3333-3333-3333-333333333333/registrations
 Content-Type: application/json
 
 {
@@ -116,7 +119,7 @@ Content-Type: application/json
 }
 
 ### Cancelar inscripción creada arriba (204)
-POST {{CourtConnect.Api_HostAddress}}/registrations/{{registrationId}}/cancel
+POST {{apiHost}}/registrations/{{registrationId}}/cancel
 
 ### Inscripción inexistente al cancelar (404)
-POST {{CourtConnect.Api_HostAddress}}/registrations/00000000-0000-0000-0000-000000000001/cancel
+POST {{apiHost}}/registrations/00000000-0000-0000-0000-000000000001/cancel
