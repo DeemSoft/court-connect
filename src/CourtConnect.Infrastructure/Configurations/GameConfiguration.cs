@@ -1,4 +1,5 @@
 using DeemSoft.CourtConnect.Domain;
+using DeemSoft.CourtConnect.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -39,6 +40,11 @@ public sealed class GameConfiguration : IEntityTypeConfiguration<Game>
         builder.HasOne(game => game.Court)
             .WithMany()
             .HasForeignKey("CourtId")
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<CourtConnectUser>()
+            .WithMany()
+            .HasForeignKey(game => game.OrganizerUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasMany(game => game.Registrations)

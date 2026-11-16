@@ -60,11 +60,13 @@ public sealed class ApplicationServiceTests
         var gameRepository = new FakeGameRepository();
         var service = new GameService(gameRepository, courtRepository, new FixedTimeProvider(Now));
         var request = new CreateGameRequest(court.Id, Now.AddDays(2), 90, 4, 16, 10m);
+        var organizerUserId = Guid.NewGuid();
 
-        var result = await service.CreateAsync(request, CancellationToken.None);
+        var result = await service.CreateAsync(request, organizerUserId, CancellationToken.None);
 
         Assert.Equal(court.Id, result.CourtId);
         Assert.Single(gameRepository.Items);
+        Assert.True(Assert.Single(gameRepository.Items.Values).IsOrganizedBy(organizerUserId));
         Assert.Equal(1, gameRepository.SaveCount);
     }
 
@@ -75,7 +77,7 @@ public sealed class ApplicationServiceTests
         var request = new CreateGameRequest(Guid.NewGuid(), Now.AddDays(2), 90, 4, 16, 10m);
 
         await Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            service.CreateAsync(request, CancellationToken.None));
+            service.CreateAsync(request, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]
@@ -88,54 +90,133 @@ public sealed class ApplicationServiceTests
         var request = new CreateGameRequest(court.Id, Now, 90, 4, 16, 10m);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            service.CreateAsync(request, CancellationToken.None));
+            service.CreateAsync(request, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]
-    public async Task PlayerService_CreateAsync_WithNewNickname_PersistsPlayer()
+    public async Task GameService_UpdateAsync_OnlyAllowsTheOrganizerToModifyTheGame()
     {
-        var repository = new FakePlayerRepository();
-        var service = new PlayerService(repository, new FixedTimeProvider(Now));
-        var request = new CreatePlayerRequest("player", "Test Player", new DateOnly(2000, 1, 1), "player@example.com");
+        var court = new Court("Central", "Barcelona");
+        var organizerUserId = Guid.NewGuid();
+        var game = new Game(court, Now.AddDays(2), TimeSpan.FromMinutes(90), 4, 16, 10m, organizerUserId: organizerUserId);
+        var repository = new FakeGameRepository();
+        repository.Items.Add(game.Id, game);
+        var service = new GameService(repository, new FakeCourtRepository(), new FixedTimeProvider(Now));
+        var request = new UpdateGameRequest(Now.AddDays(3), 120, 6, 18, 12m);
 
-        var result = await service.CreateAsync(request, CancellationToken.None);
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            service.UpdateAsync(game.Id, Guid.NewGuid(), request, CancellationToken.None));
 
-        Assert.Equal("player", result.Nickname);
-        Assert.Single(repository.Items);
+        Assert.Equal(Now.AddDays(2), game.StartAt);
+        var updated = await service.UpdateAsync(game.Id, organizerUserId, request, CancellationToken.None);
+        Assert.Equal(Now.AddDays(3), updated.StartAt);
+        Assert.Equal(6, updated.Capacity);
         Assert.Equal(1, repository.SaveCount);
     }
 
     [Fact]
-    public async Task PlayerService_CreateAsync_WhenNicknameAlreadyExists_ThrowsConflict()
+    public async Task GameService_SetStatusAsync_OnlyAllowsTheOrganizerToOpenOrCloseTheGame()
+    {
+        var court = new Court("Central", "Barcelona");
+        var organizerUserId = Guid.NewGuid();
+        var game = new Game(court, Now.AddDays(2), TimeSpan.FromMinutes(90), 4, 16, 10m, organizerUserId: organizerUserId);
+        var repository = new FakeGameRepository();
+        repository.Items.Add(game.Id, game);
+        var service = new GameService(repository, new FakeCourtRepository(), new FixedTimeProvider(Now));
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            service.SetStatusAsync(game.Id, Guid.NewGuid(), GameStatus.Closed, CancellationToken.None));
+        Assert.Equal(GameStatus.Open, game.Status);
+
+        var updated = await service.SetStatusAsync(
+            game.Id,
+            organizerUserId,
+            GameStatus.Closed,
+            CancellationToken.None);
+
+        Assert.Equal(GameStatus.Closed.ToString(), updated.Status);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task PlayerService_CreateForIdentityAsync_LinksAccountAndPersistsProfile()
+    {
+        var repository = new FakePlayerRepository();
+        var service = new PlayerService(repository, new FixedTimeProvider(Now));
+        var identityUserId = Guid.NewGuid();
+        var request = new CreatePlayerProfileRequest("player", "Test Player", new DateOnly(2000, 1, 1));
+
+        var result = await service.CreateForIdentityAsync(
+            identityUserId,
+            "player@example.com",
+            request,
+            CancellationToken.None);
+
+        Assert.Equal("player", result.Nickname);
+        Assert.Equal("player@example.com", result.Email);
+        Assert.Single(repository.Items);
+        Assert.Equal(identityUserId, Assert.Single(repository.Items.Values).IdentityUserId);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task PlayerService_CreateForIdentityAsync_WhenNicknameAlreadyExists_ThrowsConflict()
     {
         var repository = new FakePlayerRepository();
         var existingPlayer = CreatePlayer("player");
         repository.Items.Add(existingPlayer.Id, existingPlayer);
         var service = new PlayerService(repository, new FixedTimeProvider(Now));
-        var request = new CreatePlayerRequest("player", "Test Player", new DateOnly(2000, 1, 1), "other@example.com");
+        var request = new CreatePlayerProfileRequest("player", "Test Player", new DateOnly(2000, 1, 1));
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            service.CreateAsync(request, CancellationToken.None));
+            service.CreateForIdentityAsync(Guid.NewGuid(), "other@example.com", request, CancellationToken.None));
     }
 
     [Fact]
-    public async Task PlayerService_CreateAsync_WhenPlayerIsUnderSixteen_ThrowsArgumentOutOfRange()
+    public async Task PlayerService_CreateForIdentityAsync_WhenPlayerIsUnderSixteen_ThrowsArgumentOutOfRange()
     {
         var service = new PlayerService(new FakePlayerRepository(), new FixedTimeProvider(Now));
-        var request = new CreatePlayerRequest("player", "Test Player", Today.AddYears(-15), "player@example.com");
+        var request = new CreatePlayerProfileRequest("player", "Test Player", Today.AddYears(-15));
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            service.CreateAsync(request, CancellationToken.None));
+            service.CreateForIdentityAsync(Guid.NewGuid(), "player@example.com", request, CancellationToken.None));
     }
 
     [Fact]
-    public async Task PlayerService_CreateAsync_WhenDateOfBirthIsMissing_ThrowsArgument()
+    public async Task PlayerService_CreateForIdentityAsync_WhenAccountAlreadyHasProfile_ThrowsConflict()
+    {
+        var identityUserId = Guid.NewGuid();
+        var repository = new FakePlayerRepository();
+        var existingPlayer = new Player(
+            "existing",
+            "Existing Player",
+            new DateOnly(2000, 1, 1),
+            "existing@example.com",
+            Today,
+            identityUserId);
+        repository.Items.Add(existingPlayer.Id, existingPlayer);
+        var service = new PlayerService(repository, new FixedTimeProvider(Now));
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            service.CreateForIdentityAsync(
+                identityUserId,
+                "existing@example.com",
+                new CreatePlayerProfileRequest("another", "Existing Player", new DateOnly(2000, 1, 1)),
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task PlayerService_CreateForIdentityAsync_WhenDateOfBirthIsMissing_ThrowsArgument()
     {
         var service = new PlayerService(new FakePlayerRepository(), new FixedTimeProvider(Now));
-        var request = new CreatePlayerRequest("player", "Test Player", null, "player@example.com");
+        var request = new CreatePlayerProfileRequest("player", "Test Player", null);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.CreateAsync(request, CancellationToken.None));
+            service.CreateForIdentityAsync(
+                Guid.NewGuid(),
+                "player@example.com",
+                request,
+                CancellationToken.None));
     }
 
     [Fact]
@@ -188,6 +269,11 @@ public sealed class ApplicationServiceTests
             Items.TryGetValue(id, out var court);
             return Task.FromResult(court);
         }
+
+        public Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<Court>>(Items.Values.OrderBy(court => court.Name).ToArray());
+        }
     }
 
     private sealed class FakeGameRepository : IGameRepository
@@ -214,10 +300,27 @@ public sealed class ApplicationServiceTests
             return Task.FromResult(game);
         }
 
+        public Task<IReadOnlyList<Game>> GetByIdsAsync(
+            IReadOnlyCollection<Guid> ids,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Game> games = Items.Values.Where(game => ids.Contains(game.Id)).ToArray();
+            return Task.FromResult(games);
+        }
+
         public Task<IReadOnlyList<Game>> GetOpenUpcomingAsync(DateTimeOffset now, CancellationToken cancellationToken)
         {
             IReadOnlyList<Game> results = Items.Values
                 .Where(game => game.Status == GameStatus.Open && game.StartAt > now)
+                .ToArray();
+            return Task.FromResult(results);
+        }
+
+        public Task<IReadOnlyList<Game>> GetByOrganizerUserIdAsync(Guid organizerUserId, CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Game> results = Items.Values
+                .Where(game => game.OrganizerUserId == organizerUserId)
+                .OrderByDescending(game => game.StartAt)
                 .ToArray();
             return Task.FromResult(results);
         }
@@ -245,6 +348,11 @@ public sealed class ApplicationServiceTests
         {
             Items.TryGetValue(id, out var player);
             return Task.FromResult(player);
+        }
+
+        public Task<Player?> GetByIdentityUserIdAsync(Guid identityUserId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Items.Values.SingleOrDefault(player => player.IdentityUserId == identityUserId));
         }
 
         public Task<Player?> GetByNicknameAsync(string nickname, CancellationToken cancellationToken)

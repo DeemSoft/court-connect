@@ -9,4 +9,6 @@ public interface ICourtRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     Task<Court?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken);
 }

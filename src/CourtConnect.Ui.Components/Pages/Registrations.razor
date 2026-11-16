@@ -1,0 +1,59 @@
+@page "/inscripciones"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Player")]
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Inscripciones</PageTitle>
+
+<main class="page">
+    <h1>Inscripciones</h1>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    else if (_registrations is null)
+    {
+        <p role="status">Cargando tus inscripciones…</p>
+    }
+    else if (_registrations.Count == 0)
+    {
+        <p class="empty-state">Todavía no tienes inscripciones activas.</p>
+        <p><a class="button" href="/games">Buscar partidos</a></p>
+    }
+    else
+    {
+        <section class="game-list" aria-label="Tus inscripciones">
+            @foreach (var item in _registrations)
+            {
+                <article class="game-detail" @key="item.Registration.Id">
+                    <h2>@item.Game.CourtName</h2>
+                    <p>@item.Game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
+                    <p>Duración: @item.Game.DurationMinutes minutos</p>
+                    <p>Importe de la inscripción: @item.Registration.Amount.ToString("C", SpanishCulture)</p>
+                    <p>Te inscribiste el @item.Registration.CreatedAt.ToLocalTime().ToString("f", SpanishCulture)</p>
+                    <a href="@($"/games/{item.Game.Id}")">Ver partido</a>
+                </article>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    private IReadOnlyList<PlayerRegistrationDto>? _registrations;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _registrations = await ApiClient.GetMyRegistrationsAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+}

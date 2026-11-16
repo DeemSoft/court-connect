@@ -1,9 +1,12 @@
 using DeemSoft.CourtConnect.Domain;
+using DeemSoft.CourtConnect.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace DeemSoft.CourtConnect.Infrastructure;
 
-public sealed class CourtConnectDbContext : DbContext
+public sealed class CourtConnectDbContext : IdentityDbContext<CourtConnectUser, IdentityRole<Guid>, Guid>
 {
     public CourtConnectDbContext(DbContextOptions<CourtConnectDbContext> options)
         : base(options)
@@ -27,6 +30,22 @@ public sealed class CourtConnectDbContext : DbContext
         modelBuilder.ApplyConfiguration(new GameConfiguration());
         modelBuilder.ApplyConfiguration(new PlayerConfiguration());
         modelBuilder.ApplyConfiguration(new RegistrationConfiguration());
+
+        modelBuilder.Entity<IdentityRole<Guid>>().HasData(
+            new IdentityRole<Guid>
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000001"),
+                Name = CourtConnectRoles.Organizer,
+                NormalizedName = "ORGANIZER",
+                ConcurrencyStamp = "60000000-0000-0000-0000-000000000001"
+            },
+            new IdentityRole<Guid>
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000002"),
+                Name = CourtConnectRoles.Player,
+                NormalizedName = "PLAYER",
+                ConcurrencyStamp = "60000000-0000-0000-0000-000000000002"
+            });
 
         // HasData requiere identificadores estables para que EF pueda comparar los datos semilla entre migraciones.
         var courtCentralId = Guid.Parse("11111111-1111-1111-1111-111111111111");

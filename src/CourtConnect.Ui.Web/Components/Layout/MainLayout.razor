@@ -1,3 +1,27 @@
 ﻿@inherits LayoutComponentBase
 
+<nav class="site-nav" aria-label="Navegación principal">
+    <a class="site-brand" href="/games">CourtConnect</a>
+    <AuthorizeView>
+        <Authorized>
+            <AuthorizeView Roles="Organizer">
+                <Authorized Context="organizerContext">
+                    <a href="/organizer">Panel organizador</a>
+                </Authorized>
+            </AuthorizeView>
+            <AuthorizeView Roles="Player">
+                <Authorized Context="playerContext">
+                    <a href="/inscripciones">Inscripciones</a>
+                </Authorized>
+            </AuthorizeView>
+            <a href="/profile">Mi perfil</a>
+            <a href="/logout">Cerrar sesión</a>
+        </Authorized>
+        <NotAuthorized>
+            <a href="/login">Iniciar sesión</a>
+            <a href="/register">Crear cuenta</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>
+
 @Body

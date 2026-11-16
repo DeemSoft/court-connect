@@ -2,18 +2,15 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DeemSoft.CourtConnect.Application.Dtos;
 
-public sealed record CreatePlayerRequest(
+/// <summary>Creates a player profile linked to the authenticated Identity account.</summary>
+public sealed record CreatePlayerProfileRequest(
     [property: Required]
     [property: MaxLength(50)]
     string Nickname,
     [property: Required]
     [property: MaxLength(150)]
     string FullName,
-    [property: Required] DateOnly? DateOfBirth,
-    [property: Required]
-    [property: EmailAddress]
-    [property: MaxLength(200)]
-    string Email);
+    [property: Required] DateOnly? DateOfBirth);
 
 public sealed record PlayerDto(Guid Id, string Nickname, string FullName, DateOnly DateOfBirth, string Email);
 

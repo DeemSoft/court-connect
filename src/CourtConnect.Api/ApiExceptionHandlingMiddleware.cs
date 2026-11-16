@@ -20,15 +20,19 @@ public sealed class ApiExceptionHandlingMiddleware(
         // Se convierten solo errores conocidos a respuestas HTTP; los fallos inesperados deben seguir siendo errores 500.
         catch (EntityNotFoundException exception)
         {
-            await WriteProblemAsync(context, StatusCodes.Status404NotFound, "Resource not found", exception.Message);
+            await WriteProblemAsync(context, StatusCodes.Status404NotFound, "No se encontró el recurso", exception.Message);
         }
         catch (ConflictException exception)
         {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Conflict", exception.Message);
+            await WriteProblemAsync(context, StatusCodes.Status409Conflict, "Conflicto", exception.Message);
+        }
+        catch (ForbiddenException exception)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status403Forbidden, "Acceso denegado", exception.Message);
         }
         catch (ArgumentException exception)
         {
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Invalid request", exception.Message);
+            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Solicitud no válida", exception.Message);
         }
         catch (DbUpdateException exception) when (IsUniqueConstraintViolation(exception))
         {
@@ -36,8 +40,8 @@ public sealed class ApiExceptionHandlingMiddleware(
             await WriteProblemAsync(
                 context,
                 StatusCodes.Status409Conflict,
-                "Conflict",
-                "The request conflicts with an existing resource.");
+                "Conflicto",
+                "La solicitud entra en conflicto con un recurso existente.");
         }
     }
 

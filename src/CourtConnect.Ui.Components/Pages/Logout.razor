@@ -1,0 +1,34 @@
+@page "/logout"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject IWebAuthenticationService AuthenticationService
+@inject NavigationManager Navigation
+
+<PageTitle>Cerrar sesión</PageTitle>
+
+<main class="page">
+    <EditForm Model="FormModel!" OnValidSubmit="LogoutAsync" FormName="Logout" Enhance>
+        <button class="button" type="submit">Cerrar sesión</button>
+    </EditForm>
+</main>
+
+@code {
+    private const string FormName = "Logout";
+
+    [SupplyParameterFromForm(FormName = FormName)]
+    private LogoutForm? FormModel { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        FormModel ??= new LogoutForm();
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthenticationService.SignOutAsync();
+        Navigation.NavigateTo("/games", forceLoad: true);
+    }
+
+    private sealed class LogoutForm
+    {
+    }
+}

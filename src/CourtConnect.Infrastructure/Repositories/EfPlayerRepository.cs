@@ -21,6 +21,13 @@ public sealed class EfPlayerRepository(CourtConnectDbContext context) : IPlayerR
         return context.Players.SingleOrDefaultAsync(player => player.Id == id, cancellationToken);
     }
 
+    public Task<Player?> GetByIdentityUserIdAsync(Guid identityUserId, CancellationToken cancellationToken)
+    {
+        return context.Players.SingleOrDefaultAsync(
+            player => player.IdentityUserId == identityUserId,
+            cancellationToken);
+    }
+
     public Task<Player?> GetByNicknameAsync(string nickname, CancellationToken cancellationToken)
     {
         return context.Players.SingleOrDefaultAsync(player => player.Nickname == nickname, cancellationToken);

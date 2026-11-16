@@ -1,4 +1,5 @@
 @page "/games/{Id:guid}/register"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @inject ICourtConnectApiClient ApiClient
 
 <PageTitle>Apuntarse al partido</PageTitle>
@@ -11,7 +12,7 @@
     {
         <p class="message message-error" role="alert">@_errorMessage</p>
     }
-    else if (_game is not null && _players is not null)
+    else if (_game is not null)
     {
         <p class="game-context">@_game.CourtName · @_game.StartAt.ToString("f", SpanishCulture)</p>
 
@@ -26,17 +27,6 @@
         else
         {
             <EditForm Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterForGame" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <label for="player">Jugador</label>
-                <InputSelect id="player" class="form-control" @bind-Value="FormModel!.PlayerId">
-                    <option value="">Selecciona un jugador</option>
-                    @foreach (var player in _players)
-                    {
-                        <option value="@player.Id">@player.Nickname</option>
-                    }
-                </InputSelect>
-                <ValidationMessage For="@(() => FormModel!.PlayerId)" />
                 <button class="button" type="submit">Confirmar inscripción</button>
             </EditForm>
         }
@@ -55,7 +45,6 @@
     private RegistrationForm? FormModel { get; set; }
 
     private GameDto? _game;
-    private IReadOnlyList<PlayerOptionDto>? _players;
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -66,7 +55,6 @@
         try
         {
             _game = await ApiClient.GetGameAsync(Id, CancellationToken.None);
-            _players = await ApiClient.GetPlayersAsync(CancellationToken.None);
         }
         catch (CourtConnectApiException exception)
         {
@@ -76,16 +64,10 @@
 
     private async Task RegisterAsync()
     {
-        if (FormModel?.PlayerId is not Guid playerId)
-        {
-            _errorMessage = "Selecciona un jugador.";
-            return;
-        }
-
         _errorMessage = null;
         try
         {
-            await ApiClient.RegisterAsync(Id, playerId, CancellationToken.None);
+            await ApiClient.RegisterAsync(Id, CancellationToken.None);
             _successMessage = "Tu inscripción se ha confirmado.";
         }
         catch (CourtConnectApiException exception)
@@ -93,10 +75,7 @@
             _errorMessage = exception.Message;
         }
     }
-
     private sealed class RegistrationForm
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Selecciona un jugador.")]
-        public Guid? PlayerId { get; set; }
     }
 }

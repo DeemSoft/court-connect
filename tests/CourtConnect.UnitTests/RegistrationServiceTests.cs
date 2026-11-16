@@ -16,7 +16,7 @@ public sealed class RegistrationServiceTests
     {
         var fixture = new Fixture();
 
-        var registration = await fixture.Service.RegisterAsync(fixture.Game.Id, fixture.Player.Id, CancellationToken.None);
+        var registration = await fixture.Service.RegisterAsync(fixture.Game.Id, fixture.UserId, CancellationToken.None);
 
         Assert.Equal(RegistrationStatus.Confirmed.ToString(), registration.Status);
         Assert.Equal(fixture.Game.PricePerPlayer, registration.Amount);
@@ -35,7 +35,7 @@ public sealed class RegistrationServiceTests
         var fixture = new Fixture(failure);
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            fixture.Service.RegisterAsync(fixture.Game.Id, fixture.Player.Id, CancellationToken.None));
+            fixture.Service.RegisterAsync(fixture.Game.Id, fixture.UserId, CancellationToken.None));
     }
 
     [Fact]
@@ -45,17 +45,35 @@ public sealed class RegistrationServiceTests
         var missingGameId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            fixture.Service.RegisterAsync(missingGameId, fixture.Player.Id, CancellationToken.None));
+            fixture.Service.RegisterAsync(missingGameId, fixture.UserId, CancellationToken.None));
     }
 
     [Fact]
     public async Task RegisterAsync_WhenPlayerDoesNotExist_ThrowsNotFound()
     {
         var fixture = new Fixture(RegistrationFailure.PlayerNotFound);
-        var missingPlayerId = Guid.NewGuid();
+        var missingUserId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            fixture.Service.RegisterAsync(fixture.Game.Id, missingPlayerId, CancellationToken.None));
+            fixture.Service.RegisterAsync(fixture.Game.Id, missingUserId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetByIdentityUserIdAsync_ReturnsOnlyTheCurrentPlayersActiveRegistrations()
+    {
+        var fixture = new Fixture();
+        var ownRegistration = fixture.Game.Register(fixture.Player, Now);
+        var otherPlayer = CreatePlayer("other", identityUserId: Guid.NewGuid());
+        var otherRegistration = fixture.Game.Register(otherPlayer, Now.AddSeconds(1));
+        fixture.RegistrationRepository.Seed(ownRegistration);
+        fixture.RegistrationRepository.Seed(otherRegistration);
+
+        var registrations = await fixture.Service.GetByIdentityUserIdAsync(fixture.UserId, CancellationToken.None);
+
+        var result = Assert.Single(registrations);
+        Assert.Equal(ownRegistration.Id, result.Registration.Id);
+        Assert.Equal(fixture.Game.Id, result.Game.Id);
+        Assert.Equal(fixture.Game.Court.Name, result.Game.CourtName);
     }
 
     [Fact]
@@ -65,10 +83,23 @@ public sealed class RegistrationServiceTests
         var registration = fixture.Game.Register(fixture.Player, Now.AddMinutes(-1));
         fixture.RegistrationRepository.Seed(registration);
 
-        await fixture.Service.CancelAsync(registration.Id, CancellationToken.None);
+        await fixture.Service.CancelAsync(registration.Id, fixture.UserId, CancellationToken.None);
 
         Assert.Equal(RegistrationStatus.Cancelled, registration.Status);
         Assert.Equal(0, fixture.Game.CountActiveRegistrations());
+    }
+
+    [Fact]
+    public async Task CancelAsync_WhenRegistrationBelongsToAnotherPlayer_ReturnsNotFoundWithoutCancellingIt()
+    {
+        var fixture = new Fixture();
+        var registration = fixture.Game.Register(fixture.Player, Now.AddMinutes(-1));
+        fixture.RegistrationRepository.Seed(registration);
+
+        await Assert.ThrowsAsync<EntityNotFoundException>(() =>
+            fixture.Service.CancelAsync(registration.Id, Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal(RegistrationStatus.Confirmed, registration.Status);
     }
 
     [Fact]
@@ -77,7 +108,7 @@ public sealed class RegistrationServiceTests
         var fixture = new Fixture();
 
         await Assert.ThrowsAsync<EntityNotFoundException>(() =>
-            fixture.Service.CancelAsync(Guid.NewGuid(), CancellationToken.None));
+            fixture.Service.CancelAsync(Guid.NewGuid(), fixture.UserId, CancellationToken.None));
     }
 
     [Fact]
@@ -89,7 +120,7 @@ public sealed class RegistrationServiceTests
         fixture.RegistrationRepository.Seed(registration);
 
         await Assert.ThrowsAsync<ConflictException>(() =>
-            fixture.Service.CancelAsync(registration.Id, CancellationToken.None));
+            fixture.Service.CancelAsync(registration.Id, fixture.UserId, CancellationToken.None));
     }
 
     public enum RegistrationFailure
@@ -114,7 +145,7 @@ public sealed class RegistrationServiceTests
             var court = new Court("Central", "Barcelona");
 
             Game = new Game(court, startAt, TimeSpan.FromHours(2), capacity, minimumAge, 10m, status);
-            Player = CreatePlayer("player");
+            Player = CreatePlayer("player", identityUserId: UserId);
 
             if (failure != RegistrationFailure.GameNotFound)
             {
@@ -136,7 +167,7 @@ public sealed class RegistrationServiceTests
                     Game.Register(Player, Now);
                     break;
                 case RegistrationFailure.AgeTooLow:
-                    Player = CreatePlayer("player", new DateOnly(2010, 1, 10));
+                    Player = CreatePlayer("player", new DateOnly(2010, 1, 10), UserId);
                     PlayerRepository.Items.Clear();
                     PlayerRepository.Items.Add(Player.Id, Player);
                     break;
@@ -159,6 +190,8 @@ public sealed class RegistrationServiceTests
         public Game Game { get; }
 
         public Player Player { get; private set; }
+
+        public Guid UserId { get; } = Guid.NewGuid();
 
         public RegistrationService Service { get; }
     }
@@ -189,10 +222,27 @@ public sealed class RegistrationServiceTests
             return Task.FromResult(game);
         }
 
+        public Task<IReadOnlyList<Game>> GetByIdsAsync(
+            IReadOnlyCollection<Guid> ids,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Game> games = Items.Values.Where(game => ids.Contains(game.Id)).ToArray();
+            return Task.FromResult(games);
+        }
+
         public Task<IReadOnlyList<Game>> GetOpenUpcomingAsync(DateTimeOffset now, CancellationToken cancellationToken)
         {
             IReadOnlyList<Game> games = Items.Values
                 .Where(game => game.Status == GameStatus.Open && game.StartAt > now)
+                .ToArray();
+            return Task.FromResult(games);
+        }
+
+        public Task<IReadOnlyList<Game>> GetByOrganizerUserIdAsync(Guid organizerUserId, CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Game> games = Items.Values
+                .Where(game => game.OrganizerUserId == organizerUserId)
+                .OrderByDescending(game => game.StartAt)
                 .ToArray();
             return Task.FromResult(games);
         }
@@ -214,6 +264,11 @@ public sealed class RegistrationServiceTests
         {
             Items.TryGetValue(id, out var player);
             return Task.FromResult(player);
+        }
+
+        public Task<Player?> GetByIdentityUserIdAsync(Guid identityUserId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Items.Values.SingleOrDefault(player => player.IdentityUserId == identityUserId));
         }
 
         public Task<Player?> GetByNicknameAsync(string nickname, CancellationToken cancellationToken)
@@ -257,15 +312,31 @@ public sealed class RegistrationServiceTests
                 .ToArray();
             return Task.FromResult(registrations);
         }
+
+        public Task<IReadOnlyList<Registration>> GetByPlayerIdAsync(
+            Guid playerId,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<Registration> registrations = Items.Values
+                .Where(registration =>
+                    registration.PlayerId == playerId
+                    && registration.Status == RegistrationStatus.Confirmed)
+                .ToArray();
+            return Task.FromResult(registrations);
+        }
     }
 
-    private static Player CreatePlayer(string nickname, DateOnly? dateOfBirth = null)
+    private static Player CreatePlayer(
+        string nickname,
+        DateOnly? dateOfBirth = null,
+        Guid? identityUserId = null)
     {
         return new Player(
             nickname,
             "Test Player",
             dateOfBirth ?? new DateOnly(2000, 1, 1),
             $"{nickname}@example.com",
-            Today);
+            Today,
+            identityUserId);
     }
 }

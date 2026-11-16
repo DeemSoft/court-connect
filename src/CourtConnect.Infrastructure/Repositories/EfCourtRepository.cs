@@ -20,4 +20,11 @@ public sealed class EfCourtRepository(CourtConnectDbContext context) : ICourtRep
     {
         return context.Courts.SingleOrDefaultAsync(court => court.Id == id, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return await context.Courts
+            .OrderBy(court => court.Name)
+            .ToListAsync(cancellationToken);
+    }
 }

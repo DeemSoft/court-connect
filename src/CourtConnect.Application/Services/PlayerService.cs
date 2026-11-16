@@ -8,21 +8,37 @@ namespace DeemSoft.CourtConnect.Application.Services;
 
 public sealed class PlayerService(IPlayerRepository players, TimeProvider timeProvider)
 {
-    public async Task<PlayerDto> CreateAsync(CreatePlayerRequest request, CancellationToken cancellationToken)
+    public async Task<PlayerDto> CreateForIdentityAsync(
+        Guid identityUserId,
+        string email,
+        CreatePlayerProfileRequest request,
+        CancellationToken cancellationToken)
     {
-        // Esta comprobación da un error claro; el índice único de la base también protege ante altas simultáneas.
-        if (await players.GetByNicknameAsync(request.Nickname.Trim(), cancellationToken) is not null)
+        if (await players.GetByIdentityUserIdAsync(identityUserId, cancellationToken) is not null)
         {
-            throw new ConflictException($"The nickname '{request.Nickname}' is already in use.");
+            throw new ConflictException("Esta cuenta ya tiene un perfil de jugador.");
         }
 
-        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        if (await players.GetByNicknameAsync(request.Nickname.Trim(), cancellationToken) is not null)
+        {
+            throw new ConflictException($"El nombre de usuario '{request.Nickname}' ya está en uso.");
+        }
+
         var dateOfBirth = request.DateOfBirth
-            ?? throw new ArgumentException("The player's date of birth is required.", nameof(request.DateOfBirth));
-        var player = new Player(request.Nickname, request.FullName, dateOfBirth, request.Email, today);
+            ?? throw new ArgumentException("La fecha de nacimiento es obligatoria.", nameof(request.DateOfBirth));
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var player = new Player(request.Nickname, request.FullName, dateOfBirth, email, today, identityUserId);
 
         await players.AddAsync(player, cancellationToken);
         await players.SaveChangesAsync(cancellationToken);
+
+        return DtoMapper.ToDto(player);
+    }
+
+    public async Task<PlayerDto> GetByIdentityUserIdAsync(Guid identityUserId, CancellationToken cancellationToken)
+    {
+        var player = await players.GetByIdentityUserIdAsync(identityUserId, cancellationToken)
+            ?? throw new EntityNotFoundException("Player profile", identityUserId);
 
         return DtoMapper.ToDto(player);
     }

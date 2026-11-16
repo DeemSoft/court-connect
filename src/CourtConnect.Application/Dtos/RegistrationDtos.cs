@@ -2,8 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace DeemSoft.CourtConnect.Application.Dtos;
 
-public sealed record CreateRegistrationRequest([property: Required] Guid? PlayerId);
-
 public sealed record RegistrationDto(
     Guid Id,
     Guid GameId,
@@ -11,3 +9,5 @@ public sealed record RegistrationDto(
     DateTimeOffset CreatedAt,
     decimal Amount,
     string Status);
+
+public sealed record PlayerRegistrationDto(RegistrationDto Registration, GameDto Game);

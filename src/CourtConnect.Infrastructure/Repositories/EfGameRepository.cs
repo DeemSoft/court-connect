@@ -25,6 +25,23 @@ public sealed class EfGameRepository(CourtConnectDbContext context) : IGameRepos
             .SingleOrDefaultAsync(game => game.Id == id, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Game>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await context.Games
+            .AsNoTracking()
+            .Include(game => game.Court)
+            .Include(game => game.Registrations)
+            .Where(game => ids.Contains(game.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Game>> GetOpenUpcomingAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
         // El estado y el instante se filtran en SQL; las plazas se calculan con las inscripciones cargadas.
@@ -33,6 +50,18 @@ public sealed class EfGameRepository(CourtConnectDbContext context) : IGameRepos
             .Include(game => game.Registrations)
             .Where(game => game.Status == GameStatus.Open && game.StartAt > now)
             .OrderBy(game => game.StartAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Game>> GetByOrganizerUserIdAsync(
+        Guid organizerUserId,
+        CancellationToken cancellationToken)
+    {
+        return await context.Games
+            .Include(game => game.Court)
+            .Include(game => game.Registrations)
+            .Where(game => game.OrganizerUserId == organizerUserId)
+            .OrderByDescending(game => game.StartAt)
             .ToListAsync(cancellationToken);
     }
 }

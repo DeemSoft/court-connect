@@ -8,6 +8,12 @@ namespace DeemSoft.CourtConnect.Application.Services;
 
 public sealed class CourtService(ICourtRepository courts)
 {
+    public async Task<IReadOnlyList<CourtDto>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var allCourts = await courts.GetAllAsync(cancellationToken);
+        return allCourts.Select(DtoMapper.ToDto).ToArray();
+    }
+
     public async Task<CourtDto> CreateAsync(CreateCourtRequest request, CancellationToken cancellationToken)
     {
         var court = new Court(request.Name, request.Location);
