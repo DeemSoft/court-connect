@@ -12,15 +12,71 @@ body {
 .site-nav {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem max(1rem, calc((100% - 52rem) / 2));
+    gap: 1.25rem;
+    min-height: 4rem;
+    box-sizing: border-box;
+    padding: 0.75rem max(1rem, calc((100% - 62rem) / 2));
     background: #fff;
     border-bottom: 1px solid #d6dee5;
 }
 
 .site-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-right: auto;
     font-weight: 700;
+}
+
+.site-nav a {
+    color: #17212b;
+    text-decoration: none;
+}
+
+.site-nav a:hover {
+    text-decoration: underline;
+}
+
+.site-nav .site-nav-link.active {
+    color: #075e54;
+    font-weight: 700;
+}
+
+.site-nav .site-brand {
+    color: #075e54;
+}
+
+.site-brand-mark {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 0.55rem;
+    color: #fff;
+    background: #075e54;
+}
+
+.site-brand-mark svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.6;
+}
+
+.site-nav .site-nav-logout,
+.site-nav .site-nav-register {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid #d6dee5;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.site-nav .site-nav-register.active {
+    color: #075e54;
+    border-color: #b7d9d1;
+    background: #f0f8f6;
 }
 
 a {
@@ -29,17 +85,65 @@ a {
 
 .page {
     box-sizing: border-box;
-    max-width: 52rem;
+    max-width: 62rem;
     margin: 0 auto;
     padding: 2rem 1rem 4rem;
+}
+
+.page--wide {
+    max-width: 64rem;
+    padding-top: 0.25rem;
+}
+
+.page--courts {
+    max-width: 55rem;
+    padding-top: 0.25rem;
+}
+
+.page--new-game {
+    max-width: 49.5rem;
+    padding-top: 0.25rem;
+}
+
+.page--wide > p:first-child,
+.page--courts > p:first-child,
+.page--new-game > p:first-child {
+    margin-top: 0;
+}
+
+.page-auth {
+    max-width: 31rem;
+    padding-top: 0.25rem;
+}
+
+.page h1 {
+    margin: 0 0 0.5rem;
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.035em;
 }
 
 .page-header {
     margin-bottom: 2rem;
 }
 
-.eyebrow {
+.page-header > p:last-child:not(.eyebrow) {
+    margin-bottom: 0;
     color: #52616b;
+}
+
+.auth-header {
+    margin-bottom: 1.6rem;
+}
+
+.auth-header > p {
+    margin-top: 0.65rem;
+    font-size: 1.1rem;
+}
+
+.eyebrow {
+    margin: 0 0 0.45rem;
+    color: #075e54;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -51,10 +155,15 @@ a {
     gap: 1rem;
 }
 
+.game-list.court-list {
+    padding: 0;
+    list-style: none;
+}
+
 .game-card,
 .game-detail {
     border: 1px solid #d6dee5;
-    border-radius: 0.75rem;
+    border-radius: 0.9rem;
     background: #fff;
     padding: 1.25rem;
 }
@@ -64,19 +173,101 @@ a {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    min-width: 0;
 }
 
 .game-card h2 {
     margin: 0;
+    font-size: 1.1rem;
 }
 
 .game-card p {
-    margin-bottom: 0;
+    margin: 0.35rem 0 0;
+    color: #52616b;
 }
 
-.slots {
+.game-date {
+    display: grid;
+    flex: 0 0 3.5rem;
+    min-height: 3.5rem;
+    align-content: center;
+    justify-items: center;
+    border-radius: 0.75rem;
+    color: #075e54;
+    background: #edf5f2;
+}
+
+.game-date span {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+
+.game-date strong {
+    color: #17212b;
+    font-size: 1.25rem;
+    line-height: 1.1;
+}
+
+.game-card-info {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.availability-badge {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
     white-space: nowrap;
     font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.availability-badge.has-slots {
+    color: #075e54;
+    background: #e0f3ed;
+}
+
+.availability-badge.is-full {
+    color: #52616b;
+    background: #edf0f3;
+}
+
+.game-card .button {
+    flex: 0 0 auto;
+    margin-top: 0;
+    white-space: nowrap;
+}
+
+.game-filters {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.game-filter-select {
+    display: block;
+    min-width: 12rem;
+    margin-top: 0.4rem;
+    padding: 0.65rem 2rem 0.65rem 0.85rem;
+    border: 1px solid #d6dee5;
+    border-radius: 999px;
+    color: #17212b;
+    background: #fff;
+    font: inherit;
+}
+
+.availability-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.7rem;
+    box-sizing: border-box;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid #d6dee5;
+    border-radius: 999px;
+    background: #fff;
 }
 
 .game-detail dl {
@@ -91,6 +282,85 @@ a {
 
 .game-detail dd {
     margin: 0;
+}
+
+.form-panel {
+    margin-bottom: 1.75rem;
+    padding: 1.5rem;
+}
+
+.form-panel h2 {
+    margin: 0 0 1rem;
+    font-size: 1.25rem;
+}
+
+.form-grid {
+    display: grid;
+    align-items: start;
+    gap: 0.25rem 1rem;
+}
+
+.form-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-grid > .validation-errors {
+    grid-column: 1 / -1;
+}
+
+.form-field label,
+.auth-form > label:not(.checkbox-label) {
+    display: block;
+    color: #394955;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.form-field .form-control {
+    max-width: none;
+}
+
+.form-actions {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 0.25rem;
+}
+
+.form-actions .button {
+    margin-top: 0;
+}
+
+.court-section {
+    margin-top: 1.5rem;
+}
+
+.court-section > h2 {
+    margin-bottom: 0.8rem;
+    font-size: 1.25rem;
+}
+
+.court-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.court-card-info h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.court-card-info p {
+    margin: 0.35rem 0 0;
+    color: #52616b;
 }
 
 .message {
@@ -122,15 +392,197 @@ a {
     color: #52616b;
 }
 
+.organizer-header {
+    margin-bottom: 2rem;
+}
+
+.organizer-header > p:last-of-type {
+    margin-top: 0.65rem;
+    color: #52616b;
+}
+
+.organizer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.35rem;
+}
+
+.organizer-actions .button {
+    margin-top: 0;
+}
+
+.organizer-games-section > h2 {
+    margin: 0 0 0.9rem;
+    font-size: 1.35rem;
+}
+
+.game-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #d6dee5;
+    border-radius: 0.9rem;
+    background: #fff;
+    padding: 0 0.75rem;
+}
+
+.game-table {
+    width: 100%;
+    min-width: 54rem;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.game-table th,
+.game-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #d6dee5;
+    vertical-align: middle;
+}
+
+.game-table th {
+    color: #647481;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.game-table th button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.game-table td:first-child {
+    font-weight: 700;
+}
+
+.game-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.game-table a {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.game-table .button {
+    margin: 0;
+}
+
+.organizer-game-actions,
+.occupancy-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    white-space: nowrap;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.status-badge.is-open {
+    color: #075e54;
+    background: #e0f3ed;
+}
+
+.status-badge.is-closed {
+    color: #52616b;
+    background: #edf0f3;
+}
+
+.occupancy-track {
+    display: inline-block;
+    width: 4rem;
+    height: 0.35rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8ec;
+}
+
+.occupancy-track > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #087a67;
+}
+
+.auth-form {
+    display: grid;
+    gap: 0.45rem;
+    padding: 1.7rem;
+    border: 1px solid #d6dee5;
+    border-radius: 1rem;
+    background: #fff;
+}
+
+.auth-form .form-control {
+    max-width: none;
+    margin: 0.1rem 0 0.55rem;
+    padding: 0.72rem 0.85rem;
+}
+
+.auth-form .validation-message {
+    margin: -0.35rem 0 0.35rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.15rem 0 0.4rem;
+    color: #394955;
+}
+
+.checkbox-label input {
+    width: 1.2rem;
+    height: 1.2rem;
+    margin: 0;
+}
+
+.auth-form .button-block {
+    width: 100%;
+    margin-top: 0.4rem;
+}
+
+.auth-footer {
+    margin-top: 1.25rem;
+    color: #52616b;
+    text-align: center;
+}
+
+.auth-footer a {
+    font-weight: 600;
+}
+
 .form-control {
     display: block;
     box-sizing: border-box;
     width: 100%;
-    max-width: 28rem;
-    margin: 0.5rem 0 1rem;
-    padding: 0.65rem;
-    border: 1px solid #9aa8b2;
-    border-radius: 0.35rem;
+    max-width: none;
+    margin: 0.45rem 0 0.7rem;
+    padding: 0.68rem 0.75rem;
+    border: 1px solid #b9c6d3;
+    border-radius: 0.65rem;
+    color: #17212b;
+    background: #fff;
+    font: inherit;
+}
+
+.form-control:focus {
+    border-color: #075e54;
+    outline: 3px solid rgb(7 94 84 / 14%);
 }
 
 .button {
@@ -147,18 +599,286 @@ a {
     cursor: pointer;
 }
 
+.button.button-outline {
+    border: 1px solid #d6dee5;
+    color: #17212b;
+    background: #fff;
+}
+
+.button.button-outline-danger {
+    border: 1px solid #efb6bc;
+    color: #b42332;
+    background: #fff;
+}
+
 .button-secondary {
     color: #075e54;
     background: #e4f0ed;
+}
+
+.button-danger {
+    background: #a61b29;
+}
+
+.court-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.court-actions .button {
+    margin-top: 0;
 }
 
 .game-detail h3 {
     margin-top: 0;
 }
 
+.registration-confirmation {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 35rem;
+    margin-top: 2rem;
+    padding: 1.75rem;
+}
+
+.registration-confirmation-info {
+    min-width: 0;
+}
+
+.registration-confirmation-info h2 {
+    margin: 0 0 0.3rem;
+    font-size: 1.35rem;
+}
+
+.registration-confirmation-info > p {
+    margin: 0;
+    color: #52616b;
+}
+
+.registration-confirmation .form-actions {
+    margin-top: 1.2rem;
+}
+
+.registration-confirmation .game-date {
+    flex-basis: 4.5rem;
+    min-height: 4.5rem;
+}
+
+.registration-confirmation .game-date strong {
+    font-size: 1.65rem;
+}
+
+.registration-list {
+    padding: 0;
+}
+
+.registration-meta {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 0.65rem 1rem;
+    margin: 0;
+}
+
+.registration-meta dt {
+    color: #647481;
+    font-weight: 700;
+}
+
+.registration-meta dd {
+    margin: 0;
+    min-width: 0;
+    color: #17212b;
+    white-space: nowrap;
+}
+
+.registration-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    padding: 1.75rem;
+}
+
+.registration-card .game-date {
+    flex-basis: 4.5rem;
+    min-height: 4.5rem;
+}
+
+.registration-card .game-date strong {
+    font-size: 1.65rem;
+}
+
+.registration-card-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.registration-card-content h2 {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.registration-date {
+    margin: 0.25rem 0 1rem;
+    color: #52616b;
+}
+
+.registration-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.registration-card-actions > a {
+    font-weight: 600;
+}
+
+.registration-card-actions .button {
+    margin-top: 0;
+}
+
+.registration-card-actions .message {
+    margin: 0;
+}
+
+.profile-card {
+    margin-bottom: 1rem;
+    padding: 1.5rem 1.75rem;
+}
+
+.profile-card h2 {
+    margin: 0 0 1rem;
+    font-size: 1.35rem;
+}
+
+.profile-data {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.65rem;
+    margin: 0;
+}
+
+.profile-data > div {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.profile-email {
+    order: 0;
+}
+
+.profile-account-roles {
+    display: grid;
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 0.65rem;
+}
+
+.profile-account-roles .profile-role-label {
+    color: #647481;
+    font-weight: 700;
+}
+
+.profile-data dt {
+    color: #647481;
+}
+
+.profile-data dd {
+    margin: 0;
+}
+
+.profile-roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.role-badge {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    color: #075e54;
+    background: #e0f3ed;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.profile-card ~ .message-success {
+    color: #075e54;
+    background: #e0f3ed;
+}
+
 @media (max-width: 36rem) {
-    .game-card {
+    .site-nav {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .site-brand {
+        flex-basis: 100%;
+    }
+
+    .page {
+        padding-top: 1.5rem;
+    }
+
+    .page-auth {
+        padding-top: 0.75rem;
+    }
+
+    .auth-form {
+        padding: 1.25rem;
+    }
+
+    .form-grid-two,
+    .form-grid-three {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .court-card,
+    .registration-card,
+    .registration-confirmation {
         align-items: flex-start;
-        flex-direction: column;
+    }
+
+    .registration-card,
+    .registration-confirmation {
+        padding: 1.25rem;
+    }
+
+    .profile-data > div,
+    .profile-account-roles {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.15rem;
+    }
+
+    .game-card {
+        display: grid;
+        grid-template-columns: 3.5rem minmax(0, 1fr);
+        justify-content: initial;
+    }
+
+    .availability-badge,
+    .game-card .button {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
+
+@media (max-width: 37.5rem) {
+    .registration-meta {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.15rem;
+    }
+
+    .registration-meta dd {
+        margin-bottom: 0.45rem;
+        white-space: normal;
     }
 }

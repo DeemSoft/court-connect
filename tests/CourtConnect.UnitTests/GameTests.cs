@@ -111,10 +111,10 @@ public class GameTests
     {
         var game = CreateGame(capacity: 2);
         var player = CreatePlayer("player-1");
-        var registration = game.Register(player, GameStart.AddHours(-1));
+        var registration = game.Register(player, GameStart.AddDays(-5));
 
-        game.CancelRegistration(registration, GameStart.AddMinutes(-30));
-        var replacement = game.Register(player, GameStart.AddMinutes(-20));
+        game.CancelRegistration(registration, GameStart.AddHours(-73));
+        var replacement = game.Register(player, GameStart.AddHours(-72));
 
         Assert.Equal(RegistrationStatus.Cancelled, registration.Status);
         Assert.Equal(RegistrationStatus.Confirmed, replacement.Status);
@@ -122,27 +122,28 @@ public class GameTests
     }
 
     [Theory]
-    // La cancelación debe rechazarse tanto en el instante de inicio como después.
+    [InlineData(-72)]
+    [InlineData(-1)]
     [InlineData(0)]
     [InlineData(1)]
-    public void CancelRegistration_AtOrAfterGameStart_ThrowsException(int minutesFromStart)
+    public void CancelRegistration_Within72HoursOrAfterStart_ThrowsException(int hoursFromStart)
     {
         var game = CreateGame();
-        var registration = game.Register(CreatePlayer("player-1"), GameStart.AddHours(-1));
+        var registration = game.Register(CreatePlayer("player-1"), GameStart.AddDays(-5));
 
         Assert.Throws<InvalidOperationException>(() =>
-            game.CancelRegistration(registration, GameStart.AddMinutes(minutesFromStart)));
+            game.CancelRegistration(registration, GameStart.AddHours(hoursFromStart)));
     }
 
     [Fact]
     public void CancelRegistration_WhenAlreadyCancelled_ThrowsException()
     {
         var game = CreateGame();
-        var registration = game.Register(CreatePlayer("player-1"), GameStart.AddHours(-1));
-        game.CancelRegistration(registration, GameStart.AddMinutes(-30));
+        var registration = game.Register(CreatePlayer("player-1"), GameStart.AddDays(-5));
+        game.CancelRegistration(registration, GameStart.AddHours(-73));
 
         Assert.Throws<InvalidOperationException>(() =>
-            game.CancelRegistration(registration, GameStart.AddMinutes(-20)));
+            game.CancelRegistration(registration, GameStart.AddHours(-73)));
     }
 
     [Fact]

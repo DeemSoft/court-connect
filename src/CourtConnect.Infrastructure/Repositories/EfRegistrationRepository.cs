@@ -1,4 +1,5 @@
 using DeemSoft.CourtConnect.Application.Abstractions;
+using DeemSoft.CourtConnect.Application.Dtos;
 using DeemSoft.CourtConnect.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,25 @@ public sealed class EfRegistrationRepository(CourtConnectDbContext context) : IR
                 registration.GameId == gameId
                 && registration.Status == RegistrationStatus.Confirmed)
             .OrderBy(registration => registration.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<GameParticipantDto>> GetPlayersByGameIdAsync(
+        Guid gameId,
+        CancellationToken cancellationToken)
+    {
+        return await context.Registrations
+            .AsNoTracking()
+            .Where(registration =>
+                registration.GameId == gameId
+                && registration.Status == RegistrationStatus.Confirmed)
+            .Join(
+                context.Players.AsNoTracking(),
+                registration => registration.PlayerId,
+                player => player.Id,
+                (_, player) => new { player.Nickname, player.FullName })
+            .OrderBy(player => player.Nickname)
+            .Select(player => new GameParticipantDto(player.Nickname, player.FullName))
             .ToListAsync(cancellationToken);
     }
 

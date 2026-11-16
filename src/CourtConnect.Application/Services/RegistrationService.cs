@@ -72,6 +72,21 @@ public sealed class RegistrationService(
         return gameRegistrations.Select(DtoMapper.ToDto).ToArray();
     }
 
+    public async Task<IReadOnlyList<GameParticipantDto>> GetPlayersByGameIdAsync(
+        Guid gameId,
+        Guid organizerUserId,
+        CancellationToken cancellationToken)
+    {
+        var game = await games.GetByIdAsync(gameId, cancellationToken)
+            ?? throw new EntityNotFoundException("Game", gameId);
+        if (!game.IsOrganizedBy(organizerUserId))
+        {
+            throw new ForbiddenException("Solo el organizador de este partido puede ver las inscripciones.");
+        }
+
+        return await registrations.GetPlayersByGameIdAsync(gameId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<PlayerRegistrationDto>> GetByIdentityUserIdAsync(
         Guid identityUserId,
         CancellationToken cancellationToken)

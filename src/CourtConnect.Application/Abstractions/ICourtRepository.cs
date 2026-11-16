@@ -10,5 +10,9 @@ public interface ICourtRepository
 
     Task<Court?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<bool> HasGamesAsync(Guid courtId, CancellationToken cancellationToken);
+
+    void Remove(Court court);
+
     Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken);
 }

@@ -5,16 +5,18 @@
 
 <PageTitle>Crear cuenta</PageTitle>
 
-<main class="page">
-    <h1>Crear cuenta de jugador</h1>
-    <p>Después de registrarte, completa tu perfil para poder apuntarte a partidos.</p>
+<main class="page page-auth">
+    <header class="page-header auth-header">
+        <h1>Crear cuenta</h1>
+        <p>Regístrate para poder apuntarte a partidos.</p>
+    </header>
 
     @if (_errorMessage is not null)
     {
         <p class="message message-error" role="alert">@_errorMessage</p>
     }
 
-    <EditForm Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterAccount" Enhance>
+    <EditForm class="auth-form" Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterAccount" Enhance>
         <DataAnnotationsValidator />
         <ValidationSummary />
         <label for="email">Correo electrónico</label>
@@ -26,8 +28,9 @@
         <label for="confirm-password">Repite la contraseña</label>
         <InputText id="confirm-password" class="form-control" type="password" autocomplete="new-password" @bind-Value="FormModel!.ConfirmPassword" />
         <ValidationMessage For="@(() => FormModel!.ConfirmPassword)" />
-        <button class="button" type="submit">Crear cuenta</button>
+        <button class="button button-block" type="submit">Crear cuenta</button>
     </EditForm>
+    <p class="auth-footer">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
 </main>
 
 @code {

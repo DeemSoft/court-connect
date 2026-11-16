@@ -55,7 +55,7 @@ dotnet user-secrets set "Identity:DevelopmentPassword" "<contraseña-fuerte-loca
 
 La cuenta organizadora de prueba es `organizer@example.com`. También se crean cuentas de jugador para los jugadores semilla (`maria@example.com`, `pau@example.com`, `irene@example.com`, `leo@example.com` y `sara@example.com`); todas usan la contraseña local configurada arriba. Si no se configura esa clave, la API arranca igualmente, pero no crea las cuentas de prueba.
 
-Al iniciar sesión como organizador, el panel `/organizer` permite crear partidos en las pistas existentes, editar los propios y abrirlos o cerrarlos.
+Al iniciar sesión como organizador, el panel interactivo `/organizer` lista y permite ordenar los propios partidos. La página `/organizer/games/new` crea partidos; desde el detalle se pueden abrir o cerrar y consultar las inscripciones mostrando únicamente apodo y nombre. La pantalla `/organizer/courts` permite crear, editar y eliminar pistas; no se puede eliminar una pista que tenga partidos asociados.
 
 El documento OpenAPI está disponible en `http://localhost:5258/openapi/v1.json`. Las peticiones de ejemplo, incluido el flujo de registro y autenticación, están en [`src/CourtConnect.Api/CourtConnect.Api.http`](src/CourtConnect.Api/CourtConnect.Api.http). La cancelación de una inscripción ajena devuelve `404`, igual que una inscripción inexistente, para no revelar si existe.
 
@@ -71,7 +71,7 @@ La URL base de la API se configura en `src/CourtConnect.Ui.Web/appsettings.json`
 
 La web permite crear una cuenta de jugador, iniciar sesión y cerrar sesión. La sesión se mantiene con una cookie protegida; el token de Identity permanece en el servidor y se reenvía a la API mediante un `DelegatingHandler`.
 
-Los jugadores también tienen la pestaña «Inscripciones», donde pueden consultar sus partidos activos.
+Los jugadores también tienen la pestaña «Inscripciones», donde pueden consultar sus partidos activos y darse de baja si faltan más de 72 horas para el inicio.
 
 ## Dominio
 

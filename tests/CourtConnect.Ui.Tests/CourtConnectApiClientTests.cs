@@ -121,6 +121,65 @@ public sealed class CourtConnectApiClientTests
     }
 
     [Fact]
+    public async Task CreateCourtAsync_PostsTheCourtPayload()
+    {
+        var courtId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = JsonContent($$"""{"id":"{{courtId}}","name":"Central","location":"Barcelona"}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var court = await api.CreateCourtAsync(
+            new CreateCourtRequestDto("Central", "Barcelona"),
+            CancellationToken.None);
+
+        Assert.Equal(courtId, court.Id);
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal("/courts", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Contains("\"name\":\"Central\"", handler.RequestBody);
+        Assert.Contains("\"location\":\"Barcelona\"", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task UpdateCourtAsync_PutsTheCourtPayload()
+    {
+        var courtId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent($$"""{"id":"{{courtId}}","name":"Norte","location":"Badalona"}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var court = await api.UpdateCourtAsync(
+            courtId,
+            new UpdateCourtRequestDto("Norte", "Badalona"),
+            CancellationToken.None);
+
+        Assert.Equal(courtId, court.Id);
+        Assert.Equal(HttpMethod.Put, handler.Request!.Method);
+        Assert.Equal($"/courts/{courtId}", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Contains("\"name\":\"Norte\"", handler.RequestBody);
+        Assert.Contains("\"location\":\"Badalona\"", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task DeleteCourtAsync_UsesTheCourtResourceEndpoint()
+    {
+        var courtId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        await api.DeleteCourtAsync(courtId, CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Delete, handler.Request!.Method);
+        Assert.Equal($"/courts/{courtId}", handler.Request.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
     public async Task CreateGameAsync_PostsTheOrganizerGamePayload()
     {
         var gameId = Guid.NewGuid();
@@ -141,6 +200,25 @@ public sealed class CourtConnectApiClientTests
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
         Assert.Equal("/games", handler.Request.RequestUri!.AbsolutePath);
         Assert.Contains($"\"courtId\":\"{courtId}\"", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task GetGameParticipantsAsync_RequestsTheGameParticipantList()
+    {
+        var gameId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent("""[{"nickname":"driss","fullName":"Driss Example"}]""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var participants = await api.GetGameParticipantsAsync(gameId, CancellationToken.None);
+
+        var participant = Assert.Single(participants);
+        Assert.Equal("driss", participant.Nickname);
+        Assert.Equal("Driss Example", participant.FullName);
+        Assert.Equal($"/games/{gameId}/participants", handler.Request!.RequestUri!.AbsolutePath);
     }
 
     [Theory]
@@ -226,6 +304,21 @@ public sealed class CourtConnectApiClientTests
         Assert.Equal(playerId, registration.PlayerId);
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
         Assert.Equal($"/games/{gameId}/registrations", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Null(handler.Request.Content);
+    }
+
+    [Fact]
+    public async Task CancelRegistrationAsync_PostsToTheCancellationEndpoint()
+    {
+        var registrationId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.NoContent));
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        await api.CancelRegistrationAsync(registrationId, CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal($"/registrations/{registrationId}/cancel", handler.Request.RequestUri!.AbsolutePath);
         Assert.Null(handler.Request.Content);
     }
 

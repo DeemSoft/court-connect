@@ -4,14 +4,22 @@
 
 <PageTitle>Inscripciones</PageTitle>
 
-<main class="page">
-    <h1>Inscripciones</h1>
+<main class="page page--wide">
+    <header class="page-header">
+        <p class="eyebrow">Jugador</p>
+        <h1>Mis inscripciones</h1>
+    </header>
 
     @if (_errorMessage is not null)
     {
         <p class="message message-error" role="alert">@_errorMessage</p>
     }
-    else if (_registrations is null)
+    @if (_successMessage is not null)
+    {
+        <p class="message message-success" role="status">@_successMessage</p>
+    }
+
+    @if (_registrations is null)
     {
         <p role="status">Cargando tus inscripciones…</p>
     }
@@ -22,31 +30,66 @@
     }
     else
     {
-        <section class="game-list" aria-label="Tus inscripciones">
-            @foreach (var item in _registrations)
-            {
-                <article class="game-detail" @key="item.Registration.Id">
-                    <h2>@item.Game.CourtName</h2>
-                    <p>@item.Game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
-                    <p>Duración: @item.Game.DurationMinutes minutos</p>
-                    <p>Importe de la inscripción: @item.Registration.Amount.ToString("C", SpanishCulture)</p>
-                    <p>Te inscribiste el @item.Registration.CreatedAt.ToLocalTime().ToString("f", SpanishCulture)</p>
-                    <a href="@($"/games/{item.Game.Id}")">Ver partido</a>
-                </article>
-            }
-        </section>
+        <EditForm Model="FormModel!" OnValidSubmit="CancelRegistrationAsync" FormName="CancelRegistration" Enhance>
+            <section class="game-list registration-list" aria-label="Tus inscripciones">
+                @foreach (var item in _registrations)
+                {
+                    <article class="game-detail registration-card" @key="item.Registration.Id">
+                        <div class="game-date" aria-label="@item.Game.StartAt.ToLocalTime().ToString("D", SpanishCulture)">
+                            <span>@item.Game.StartAt.ToLocalTime().ToString("MMM", SpanishCulture).TrimEnd('.').ToUpper(SpanishCulture)</span>
+                            <strong>@item.Game.StartAt.ToLocalTime().Day</strong>
+                        </div>
+                        <div class="registration-card-content">
+                            <h2>@item.Game.CourtName</h2>
+                            <p class="registration-date">@item.Game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
+                            <dl class="registration-meta">
+                                <dt>Duración</dt>
+                                <dd>@item.Game.DurationMinutes minutos</dd>
+                                <dt>Importe de la inscripción</dt>
+                                <dd>@item.Registration.Amount.ToString("C", SpanishCulture)</dd>
+                                <dt>Te inscribiste</dt>
+                                <dd>@item.Registration.CreatedAt.ToLocalTime().ToString("f", SpanishCulture)</dd>
+                            </dl>
+                            <div class="registration-card-actions">
+                                <a href="@($"/games/{item.Game.Id}")">Ver partido</a>
+                                @if (CanCancel(item))
+                                {
+                                    <button class="button button-danger button-outline-danger"
+                                            type="submit"
+                                            name="FormModel.RegistrationId"
+                                            value="@item.Registration.Id">
+                                        Darme de baja
+                                    </button>
+                                }
+                                else
+                                {
+                                    <p class="message message-info">Solo puedes darte de baja con más de 72 horas de antelación.</p>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </section>
+        </EditForm>
     }
 </main>
 
 @code {
+    private const string FormName = "CancelRegistration";
+    private static readonly TimeSpan CancellationDeadline = TimeSpan.FromHours(72);
     private static readonly System.Globalization.CultureInfo SpanishCulture =
         System.Globalization.CultureInfo.GetCultureInfo("es-ES");
 
+    [SupplyParameterFromForm(FormName = FormName)]
+    private CancellationForm? FormModel { get; set; }
+
     private IReadOnlyList<PlayerRegistrationDto>? _registrations;
     private string? _errorMessage;
+    private string? _successMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        FormModel ??= new CancellationForm();
         try
         {
             _registrations = await ApiClient.GetMyRegistrationsAsync(CancellationToken.None);
@@ -55,5 +98,40 @@
         {
             _errorMessage = exception.Message;
         }
+    }
+
+    private async Task CancelRegistrationAsync()
+    {
+        if (FormModel is null || FormModel.RegistrationId == Guid.Empty)
+        {
+            _errorMessage = "Selecciona la inscripción que quieres cancelar.";
+            return;
+        }
+
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await ApiClient.CancelRegistrationAsync(FormModel.RegistrationId, CancellationToken.None);
+            _registrations = (_registrations ?? [])
+                .Where(item => item.Registration.Id != FormModel.RegistrationId)
+                .ToArray();
+            _successMessage = "Te has dado de baja del partido.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private static bool CanCancel(PlayerRegistrationDto registration)
+    {
+        return registration.Registration.Status == "Confirmed"
+            && registration.Game.StartAt - DateTimeOffset.UtcNow > CancellationDeadline;
+    }
+
+    private sealed class CancellationForm
+    {
+        public Guid RegistrationId { get; set; }
     }
 }

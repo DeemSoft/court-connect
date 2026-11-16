@@ -14,6 +14,12 @@ public sealed record GameDto(
 
 public sealed record CourtDto(Guid Id, string Name, string Location);
 
+public sealed record CreateCourtRequestDto(string Name, string Location);
+
+public sealed record UpdateCourtRequestDto(string Name, string Location);
+
+public sealed record GameParticipantDto(string Nickname, string FullName);
+
 public sealed record CurrentAccountDto(string? Email, IReadOnlyList<string> Roles);
 
 public sealed record CreateGameRequestDto(
@@ -67,6 +73,15 @@ public interface ICourtConnectApiClient
 
     Task<IReadOnlyList<CourtDto>> GetCourtsAsync(CancellationToken cancellationToken);
 
+    Task<CourtDto> CreateCourtAsync(CreateCourtRequestDto request, CancellationToken cancellationToken);
+
+    Task<CourtDto> UpdateCourtAsync(
+        Guid courtId,
+        UpdateCourtRequestDto request,
+        CancellationToken cancellationToken);
+
+    Task DeleteCourtAsync(Guid courtId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<GameDto>> GetMyOrganizedGamesAsync(CancellationToken cancellationToken);
 
     Task<GameDto> CreateGameAsync(CreateGameRequestDto request, CancellationToken cancellationToken);
@@ -75,6 +90,10 @@ public interface ICourtConnectApiClient
 
     Task<GameDto> SetGameStatusAsync(Guid gameId, string status, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<GameParticipantDto>> GetGameParticipantsAsync(
+        Guid gameId,
+        CancellationToken cancellationToken);
+
     Task<PlayerDto> GetMyProfileAsync(CancellationToken cancellationToken);
 
     Task<PlayerDto> CreateMyProfileAsync(
@@ -82,6 +101,8 @@ public interface ICourtConnectApiClient
         CancellationToken cancellationToken);
 
     Task<RegistrationDto> RegisterAsync(Guid gameId, CancellationToken cancellationToken);
+
+    Task CancelRegistrationAsync(Guid registrationId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<PlayerRegistrationDto>> GetMyRegistrationsAsync(CancellationToken cancellationToken);
 }

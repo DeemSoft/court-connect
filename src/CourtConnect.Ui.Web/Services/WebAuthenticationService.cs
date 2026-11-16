@@ -22,7 +22,8 @@ public sealed class WebAuthenticationService(
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, account.Email ?? email),
-            new(ClaimTypes.Email, account.Email ?? email)
+            new(ClaimTypes.Email, account.Email ?? email),
+            new(CourtConnectClaimTypes.AccessToken, tokens.AccessToken)
         };
         claims.AddRange(account.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
         var identity = new ClaimsIdentity(
@@ -73,6 +74,13 @@ public sealed class WebAuthenticationService(
         {
             identity.AddClaim(new Claim(ClaimTypes.Role, role));
         }
+
+        foreach (var accessTokenClaim in identity.FindAll(CourtConnectClaimTypes.AccessToken).ToArray())
+        {
+            identity.RemoveClaim(accessTokenClaim);
+        }
+
+        identity.AddClaim(new Claim(CourtConnectClaimTypes.AccessToken, tokens.AccessToken));
 
         var properties = authentication.Properties ?? new AuthenticationProperties();
         properties.ExpiresUtc = DateTimeOffset.UtcNow.AddSeconds(tokens.ExpiresIn);

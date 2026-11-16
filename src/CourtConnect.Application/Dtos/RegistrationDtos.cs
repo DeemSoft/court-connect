@@ -11,3 +11,5 @@ public sealed record RegistrationDto(
     string Status);
 
 public sealed record PlayerRegistrationDto(RegistrationDto Registration, GameDto Game);
+
+public sealed record GameParticipantDto(string Nickname, string FullName);

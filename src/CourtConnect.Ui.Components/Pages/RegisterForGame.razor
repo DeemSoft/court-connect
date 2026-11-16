@@ -4,7 +4,7 @@
 
 <PageTitle>Apuntarse al partido</PageTitle>
 
-<main class="page">
+<main class="page page--wide">
     <p><a href="@($"/games/{Id}")">← Volver a la ficha del partido</a></p>
     <h1>Apuntarse al partido</h1>
 
@@ -14,8 +14,6 @@
     }
     else if (_game is not null)
     {
-        <p class="game-context">@_game.CourtName · @_game.StartAt.ToString("f", SpanishCulture)</p>
-
         @if (_successMessage is not null)
         {
             <p class="message message-success" role="status">@_successMessage</p>
@@ -26,9 +24,20 @@
         }
         else
         {
-            <EditForm Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterForGame" Enhance>
-                <button class="button" type="submit">Confirmar inscripción</button>
-            </EditForm>
+            <section class="game-detail registration-confirmation">
+                <div class="game-date" aria-label="@_game.StartAt.ToLocalTime().ToString("D", SpanishCulture)">
+                    <span>@_game.StartAt.ToLocalTime().ToString("MMM", SpanishCulture).TrimEnd('.').ToUpper(SpanishCulture)</span>
+                    <strong>@_game.StartAt.ToLocalTime().Day</strong>
+                </div>
+                <div class="registration-confirmation-info">
+                    <h2>@_game.CourtName</h2>
+                    <p>@_game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
+                    <EditForm class="form-actions" Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterForGame" Enhance>
+                        <button class="button" type="submit">Confirmar inscripción</button>
+                        <a class="button button-outline" href="@($"/games/{Id}")">Cancelar</a>
+                    </EditForm>
+                </div>
+            </section>
         }
     }
 </main>

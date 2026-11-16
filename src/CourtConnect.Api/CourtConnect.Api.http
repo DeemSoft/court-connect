@@ -90,6 +90,16 @@ Content-Type: application/json
 ###
 @courtId = {{createCourt.response.body.$.id}}
 
+### Actualizar pista como organizador
+PUT {{apiHost}}/courts/{{courtId}}
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "name": "Cancha central",
+  "location": "Barcelona"
+}
+
 ### Crear partido como organizador (201)
 # @name createGame
 POST {{apiHost}}/games
@@ -134,7 +144,7 @@ GET {{apiHost}}/games/{{gameId}}/registrations
 Authorization: Bearer {{playerToken}}
 Accept: application/json
 
-### Cancelar mi inscripción (204)
+### Cancelar mi inscripción (204, solo con más de 72 horas de antelación)
 POST {{apiHost}}/registrations/{{registrationId}}/cancel
 Authorization: Bearer {{playerToken}}
 
@@ -159,3 +169,25 @@ Content-Type: application/json
 {
   "status": "Open"
 }
+
+### Crear una pista sin partidos para probar su eliminación
+# @name createCourtToDelete
+POST {{apiHost}}/courts
+Authorization: Bearer {{organizerToken}}
+Content-Type: application/json
+
+{
+  "name": "Pista temporal",
+  "location": "Barcelona"
+}
+
+###
+@courtToDeleteId = {{createCourtToDelete.response.body.$.id}}
+
+### Eliminar pista sin partidos (204)
+DELETE {{apiHost}}/courts/{{courtToDeleteId}}
+Authorization: Bearer {{organizerToken}}
+
+### Intentar eliminar una pista con un partido asociado (409)
+DELETE {{apiHost}}/courts/{{courtId}}
+Authorization: Bearer {{organizerToken}}

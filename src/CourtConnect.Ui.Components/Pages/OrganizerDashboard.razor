@@ -1,14 +1,19 @@
 @page "/organizer"
+@rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Organizer")]
 @inject ICourtConnectApiClient ApiClient
 
 <PageTitle>Panel del organizador</PageTitle>
 
-<main class="page">
-    <header class="page-header">
+<main class="page page--wide organizer-dashboard">
+    <header class="page-header organizer-header">
         <p class="eyebrow">Organizador</p>
-        <h1>Gestiona tus partidos</h1>
-        <p>Crea partidos y administra solo los que pertenecen a tu cuenta.</p>
+        <h1>Mis partidos</h1>
+        <p>Administra solo los partidos que pertenecen a tu cuenta.</p>
+        <div class="organizer-actions">
+            <a class="button" href="/organizer/games/new">Nuevo partido</a>
+            <a class="button button-secondary" href="/organizer/courts">Gestionar pistas</a>
+        </div>
     </header>
 
     @if (_errorMessage is not null)
@@ -20,52 +25,8 @@
         <p class="message message-success" role="status">@_successMessage</p>
     }
 
-    <section class="game-detail">
-        <h2>Crear partido</h2>
-        @if (_courts is null)
-        {
-            <p role="status">Cargando pistas…</p>
-        }
-        else if (_courts.Count == 0)
-        {
-            <p class="message message-info">No hay pistas disponibles para crear un partido.</p>
-        }
-        else
-        {
-            <EditForm Model="CreateForm!" OnValidSubmit="CreateGameAsync" FormName="@CreateFormName" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <label for="create-court">Pista</label>
-                <InputSelect id="create-court" class="form-control" @bind-Value="CreateForm!.CourtId">
-                    <option value="">Selecciona una pista</option>
-                    @foreach (var court in _courts)
-                    {
-                        <option value="@court.Id">@court.Name — @court.Location</option>
-                    }
-                </InputSelect>
-                <ValidationMessage For="@(() => CreateForm!.CourtId)" />
-                <label for="create-start">Fecha y hora</label>
-                <InputDate id="create-start" class="form-control" Type="InputDateType.DateTimeLocal" @bind-Value="CreateForm!.StartAt" />
-                <ValidationMessage For="@(() => CreateForm!.StartAt)" />
-                <label for="create-duration">Duración (minutos)</label>
-                <InputNumber id="create-duration" class="form-control" @bind-Value="CreateForm!.DurationMinutes" />
-                <ValidationMessage For="@(() => CreateForm!.DurationMinutes)" />
-                <label for="create-capacity">Plazas</label>
-                <InputNumber id="create-capacity" class="form-control" @bind-Value="CreateForm!.Capacity" />
-                <ValidationMessage For="@(() => CreateForm!.Capacity)" />
-                <label for="create-age">Edad mínima</label>
-                <InputNumber id="create-age" class="form-control" @bind-Value="CreateForm!.MinimumAge" />
-                <ValidationMessage For="@(() => CreateForm!.MinimumAge)" />
-                <label for="create-price">Precio por jugador</label>
-                <InputNumber id="create-price" class="form-control" @bind-Value="CreateForm!.PricePerPlayer" />
-                <ValidationMessage For="@(() => CreateForm!.PricePerPlayer)" />
-                <button class="button" type="submit">Crear partido</button>
-            </EditForm>
-        }
-    </section>
-
-    <section>
-        <h2>Tus partidos</h2>
+    <section class="organizer-games-section">
+        <h2>Partidos organizados</h2>
         @if (_games is null)
         {
             <p role="status">Cargando tus partidos…</p>
@@ -76,23 +37,36 @@
         }
         else
         {
-            @* En SSR estático, cada botón envía un comando junto con el identificador del partido. *@
-            <EditForm Model="ManagementForm!" OnValidSubmit="HandleManagementCommandAsync" FormName="@ManagementFormName" Enhance>
-                <div class="game-list">
-                @foreach (var game in _games)
-                {
-                    <article class="game-detail" @key="game.Id">
-                        <h3>@game.CourtName</h3>
-                        <p>@game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
-                        <p>@game.AvailableSlots de @game.Capacity plazas libres · Estado: @GetStatusDisplayName(game.Status)</p>
-                        <button class="button button-secondary" type="submit" name="ManagementForm.Command" value="@($"edit:{game.Id}")">Editar</button>
-                        <button class="button" type="submit" name="ManagementForm.Command" value="@($"status:{game.Id}")">
-                            @(game.Status == "Open" ? "Cerrar partido" : "Abrir partido")
-                        </button>
-                    </article>
-                }
-                </div>
-            </EditForm>
+            <div class="game-table-wrap">
+                <QuickGrid Class="game-table" Items="@_games!.AsQueryable()">
+                    <PropertyColumn Property="game => game.CourtName" Title="Pista" Sortable="true" />
+                    <TemplateColumn Title="Fecha y hora" Sortable="true"
+                                    SortBy="@(GridSort<GameDto>.ByAscending(game => game.StartAt))">
+                        @context.StartAt.ToLocalTime().ToString("f", SpanishCulture)
+                    </TemplateColumn>
+                    <TemplateColumn Title="Plazas ocupadas" Sortable="true"
+                                    SortBy="@(GridSort<GameDto>.ByAscending(game => game.Capacity - game.AvailableSlots))">
+                        <div class="occupancy-cell">
+                            <span>@(context.Capacity - context.AvailableSlots) de @context.Capacity</span>
+                            <span class="occupancy-track" aria-hidden="true">
+                                <span style="@($"width: {GetOccupancyPercentage(context)}%")"></span>
+                            </span>
+                        </div>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Estado" Sortable="true"
+                                    SortBy="@(GridSort<GameDto>.ByAscending(game => game.Status))">
+                        <span class="status-badge @(context.Status == "Open" ? "is-open" : "is-closed")">
+                            @GetStatusDisplayName(context.Status)
+                        </span>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Acciones">
+                        <div class="organizer-game-actions">
+                            <a href="@($"/organizer/games/{context.Id}")">Ver detalle</a>
+                            <button class="button button-secondary" type="button" @onclick="() => BeginEdit(context)">Editar</button>
+                        </div>
+                    </TemplateColumn>
+                </QuickGrid>
+            </div>
         }
     </section>
 
@@ -128,8 +102,6 @@
 </main>
 
 @code {
-    private const string CreateFormName = "CreateOrganizerGame";
-    private const string ManagementFormName = "ManageOrganizerGames";
     private const string EditFormName = "EditOrganizerGame";
     private static readonly System.Globalization.CultureInfo SpanishCulture =
         System.Globalization.CultureInfo.GetCultureInfo("es-ES");
@@ -141,16 +113,16 @@
         _ => "Desconocido"
     };
 
-    [SupplyParameterFromForm(FormName = CreateFormName)]
-    private GameForm? CreateForm { get; set; }
-
-    [SupplyParameterFromForm(FormName = ManagementFormName)]
-    private GameCommandForm? ManagementForm { get; set; }
+    private static int GetOccupancyPercentage(GameDto game)
+    {
+        return game.Capacity <= 0
+            ? 0
+            : Math.Clamp((game.Capacity - game.AvailableSlots) * 100 / game.Capacity, 0, 100);
+    }
 
     [SupplyParameterFromForm(FormName = EditFormName)]
     private GameForm? EditForm { get; set; }
 
-    private IReadOnlyList<CourtDto>? _courts;
     private IReadOnlyList<GameDto>? _games;
     private Guid? _editingGameId;
     private string? _errorMessage;
@@ -158,83 +130,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        CreateForm ??= new GameForm();
-        ManagementForm ??= new GameCommandForm();
-        if (EditForm is not null && Guid.TryParse(EditForm.GameId, out var gameId))
-        {
-            _editingGameId = gameId;
-        }
-
         await LoadAsync();
-    }
-
-    private async Task CreateGameAsync()
-    {
-        _errorMessage = null;
-        _successMessage = null;
-        try
-        {
-            var form = CreateForm
-                ?? throw new InvalidOperationException("The create-game form is unavailable.");
-            await ApiClient.CreateGameAsync(
-                new CreateGameRequestDto(
-                    Guid.TryParse(form.CourtId, out var courtId)
-                        ? courtId
-                        : throw new InvalidOperationException("The selected court is invalid."),
-                    ToDateTimeOffset(form.StartAt),
-                    form.DurationMinutes,
-                    form.Capacity,
-                    form.MinimumAge,
-                    form.PricePerPlayer),
-                CancellationToken.None);
-            CreateForm = new GameForm();
-            await LoadGamesAsync();
-            _successMessage = "El partido se ha creado correctamente.";
-        }
-        catch (CourtConnectApiException exception)
-        {
-            _errorMessage = exception.Message;
-        }
-    }
-
-    private async Task HandleManagementCommandAsync()
-    {
-        _errorMessage = null;
-        _successMessage = null;
-        var submittedCommand = ManagementForm?.Command;
-        if (string.IsNullOrWhiteSpace(submittedCommand))
-        {
-            _errorMessage = "La acción solicitada no es válida.";
-            return;
-        }
-
-        var command = submittedCommand.Split(':', 2);
-        if (command.Length != 2 || !Guid.TryParse(command[1], out var gameId))
-        {
-            _errorMessage = "La acción solicitada no es válida.";
-            return;
-        }
-
-        var game = _games?.SingleOrDefault(item => item.Id == gameId);
-        if (game is null)
-        {
-            _errorMessage = "No se encontró el partido que quieres gestionar.";
-            return;
-        }
-
-        if (command[0] == "edit")
-        {
-            BeginEdit(game);
-            return;
-        }
-
-        if (command[0] == "status")
-        {
-            await ToggleStatusAsync(game);
-            return;
-        }
-
-        _errorMessage = "La acción solicitada no es válida.";
     }
 
     private void BeginEdit(GameDto game)
@@ -276,34 +172,15 @@
         }
     }
 
-    private async Task ToggleStatusAsync(GameDto game)
-    {
-        _errorMessage = null;
-        _successMessage = null;
-        try
-        {
-            var nextStatus = game.Status == "Open" ? "Closed" : "Open";
-            await ApiClient.SetGameStatusAsync(game.Id, nextStatus, CancellationToken.None);
-            await LoadGamesAsync();
-            _successMessage = nextStatus == "Open" ? "El partido está abierto." : "El partido se ha cerrado.";
-        }
-        catch (CourtConnectApiException exception)
-        {
-            _errorMessage = exception.Message;
-        }
-    }
-
     private async Task LoadAsync()
     {
         _errorMessage = null;
         try
         {
-            _courts = await ApiClient.GetCourtsAsync(CancellationToken.None);
             await LoadGamesAsync();
         }
         catch (CourtConnectApiException exception)
         {
-            _courts = [];
             _games = [];
             _errorMessage = exception.Message;
         }
@@ -364,11 +241,5 @@
 
         [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "1000000", ErrorMessage = "El precio no puede ser negativo.")]
         public decimal PricePerPlayer { get; set; } = 10m;
-    }
-
-    private sealed class GameCommandForm
-    {
-        [System.ComponentModel.DataAnnotations.Required]
-        public string Command { get; set; } = string.Empty;
     }
 }

@@ -21,6 +21,18 @@ public sealed class EfCourtRepository(CourtConnectDbContext context) : ICourtRep
         return context.Courts.SingleOrDefaultAsync(court => court.Id == id, cancellationToken);
     }
 
+    public Task<bool> HasGamesAsync(Guid courtId, CancellationToken cancellationToken)
+    {
+        return context.Games.AnyAsync(
+            game => EF.Property<Guid>(game, "CourtId") == courtId,
+            cancellationToken);
+    }
+
+    public void Remove(Court court)
+    {
+        context.Courts.Remove(court);
+    }
+
     public async Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken)
     {
         return await context.Courts

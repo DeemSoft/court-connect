@@ -91,6 +91,73 @@ public sealed class RegisterFormHttpTests
     }
 
     [Fact]
+    public async Task PlayerCanCancelAnActiveRegistrationFromTheRegistrationsPage()
+    {
+        var gameId = Guid.NewGuid();
+        var game = new GameDto(
+            gameId,
+            Guid.NewGuid(),
+            "Pista Central",
+            DateTimeOffset.UtcNow.AddDays(5),
+            90,
+            4,
+            3,
+            16,
+            10m,
+            "Open");
+        var registration = new RegistrationDto(
+            Guid.NewGuid(),
+            gameId,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow,
+            10m,
+            "Confirmed");
+        var api = new FakeCourtConnectApiClient(gameId)
+        {
+            MyRegistrations = [new PlayerRegistrationDto(registration, game)]
+        };
+        await using var factory = new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ICourtConnectApiClient>();
+                services.AddSingleton<ICourtConnectApiClient>(api);
+            }));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true
+        });
+
+        using var loginResponse = await client.GetAsync("/login");
+        var loginHtml = await loginResponse.Content.ReadAsStringAsync();
+        using var loginContent = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("_handler", "Login"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(loginHtml)),
+            new KeyValuePair<string, string>("FormModel.Email", "player@example.com"),
+            new KeyValuePair<string, string>("FormModel.Password", "Strong-password-123!")
+        ]);
+        using var loginPost = await client.PostAsync("/login", loginContent);
+        Assert.True(loginPost.IsSuccessStatusCode || loginPost.StatusCode == HttpStatusCode.Redirect);
+
+        using var registrationsResponse = await client.GetAsync("/inscripciones");
+        var registrationsHtml = await registrationsResponse.Content.ReadAsStringAsync();
+        Assert.Contains("Darme de baja", registrationsHtml);
+        using var cancellationContent = new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("_handler", "CancelRegistration"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(registrationsHtml)),
+            new KeyValuePair<string, string>("FormModel.RegistrationId", registration.Id.ToString())
+        ]);
+        using var cancellationResponse = await client.PostAsync("/inscripciones", cancellationContent);
+        var cancellationHtml = WebUtility.HtmlDecode(await cancellationResponse.Content.ReadAsStringAsync());
+
+        Assert.True(cancellationResponse.IsSuccessStatusCode);
+        Assert.Equal(registration.Id, api.LastCancelledRegistrationId);
+        Assert.Contains("Te has dado de baja del partido.", cancellationHtml);
+        Assert.Contains("Todavía no tienes inscripciones activas.", cancellationHtml);
+    }
+
+    [Fact]
     public async Task PostForm_UsesTheLoggedInPlayerAndDoesNotAcceptAPlayerId()
     {
         var gameId = Guid.NewGuid();
@@ -170,7 +237,7 @@ public sealed class RegisterFormHttpTests
     }
 
     [Fact]
-    public async Task OrganizerDashboardHttp_CreatesGameFromTheSubmittedForm()
+    public async Task OrganizerNewGameHttp_CreatesGameFromTheSubmittedForm()
     {
         var api = new FakeCourtConnectApiClient(Guid.NewGuid(), "Organizer");
         await using var factory = CreateFactory(api);
@@ -180,23 +247,23 @@ public sealed class RegisterFormHttpTests
         });
         await SignInAsOrganizerAsync(client);
 
-        using var dashboardResponse = await client.GetAsync("/organizer");
+        using var dashboardResponse = await client.GetAsync("/organizer/games/new");
         var dashboardHtml = WebUtility.HtmlDecode(await dashboardResponse.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, dashboardResponse.StatusCode);
-        Assert.Contains("Gestiona tus partidos", dashboardHtml);
+        Assert.Contains("Nuevo partido", dashboardHtml);
         using var gameContent = new FormUrlEncodedContent(
         [
             new KeyValuePair<string, string>("_handler", "CreateOrganizerGame"),
             new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(dashboardHtml)),
-            new KeyValuePair<string, string>("CreateForm.CourtId", api.TestCourt.Id.ToString()),
-            new KeyValuePair<string, string>("CreateForm.StartAt", DateTime.Now.AddDays(2).ToString("yyyy-MM-ddTHH:mm")),
-            new KeyValuePair<string, string>("CreateForm.DurationMinutes", "90"),
-            new KeyValuePair<string, string>("CreateForm.Capacity", "4"),
-            new KeyValuePair<string, string>("CreateForm.MinimumAge", "16"),
-            new KeyValuePair<string, string>("CreateForm.PricePerPlayer", "10")
+            new KeyValuePair<string, string>("Form.CourtId", api.TestCourt.Id.ToString()),
+            new KeyValuePair<string, string>("Form.StartAt", DateTime.Now.AddDays(2).ToString("yyyy-MM-ddTHH:mm")),
+            new KeyValuePair<string, string>("Form.DurationMinutes", "90"),
+            new KeyValuePair<string, string>("Form.Capacity", "4"),
+            new KeyValuePair<string, string>("Form.MinimumAge", "16"),
+            new KeyValuePair<string, string>("Form.PricePerPlayer", "10")
         ]);
 
-        using var createResponse = await client.PostAsync("/organizer", gameContent);
+        using var createResponse = await client.PostAsync("/organizer/games/new", gameContent);
         var createdHtml = WebUtility.HtmlDecode(await createResponse.Content.ReadAsStringAsync());
 
         Assert.True(createResponse.IsSuccessStatusCode, createdHtml);
@@ -206,7 +273,7 @@ public sealed class RegisterFormHttpTests
     }
 
     [Fact]
-    public async Task OrganizerDashboardHttp_EditActionShowsTheFormAndSavesChanges()
+    public async Task OrganizerDashboardHttp_ShowsTheOwnersGamesAndEditAction()
     {
         var api = new FakeCourtConnectApiClient(Guid.NewGuid(), "Organizer", includeOwnedGame: true);
         await using var factory = CreateFactory(api);
@@ -218,36 +285,15 @@ public sealed class RegisterFormHttpTests
 
         using var dashboardResponse = await client.GetAsync("/organizer");
         var dashboardHtml = WebUtility.HtmlDecode(await dashboardResponse.Content.ReadAsStringAsync());
-        using var editAction = CreateCommandForm(dashboardHtml, $"edit:{api.TestGame.Id}");
-        using var editResponse = await client.PostAsync("/organizer", editAction);
-        var editHtml = WebUtility.HtmlDecode(await editResponse.Content.ReadAsStringAsync());
 
-        Assert.Equal(HttpStatusCode.OK, editResponse.StatusCode);
-        Assert.Contains("Guardar cambios", editHtml);
-        using var updateForm = new FormUrlEncodedContent(
-        [
-            new KeyValuePair<string, string>("_handler", "EditOrganizerGame"),
-            new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(editHtml)),
-            new KeyValuePair<string, string>("EditForm.GameId", api.TestGame.Id.ToString()),
-            new KeyValuePair<string, string>("EditForm.CourtId", api.TestCourt.Id.ToString()),
-            new KeyValuePair<string, string>("EditForm.StartAt", DateTime.Now.AddDays(3).ToString("yyyy-MM-ddTHH:mm")),
-            new KeyValuePair<string, string>("EditForm.DurationMinutes", "120"),
-            new KeyValuePair<string, string>("EditForm.Capacity", "6"),
-            new KeyValuePair<string, string>("EditForm.MinimumAge", "18"),
-            new KeyValuePair<string, string>("EditForm.PricePerPlayer", "12")
-        ]);
-
-        using var updateResponse = await client.PostAsync("/organizer", updateForm);
-        var updatedHtml = WebUtility.HtmlDecode(await updateResponse.Content.ReadAsStringAsync());
-
-        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
-        Assert.NotNull(api.LastUpdatedRequest);
-        Assert.Equal(120, api.LastUpdatedRequest.DurationMinutes);
-        Assert.Contains("Los cambios se han guardado", updatedHtml);
+        Assert.Equal(HttpStatusCode.OK, dashboardResponse.StatusCode);
+        Assert.Contains("Mis partidos", dashboardHtml);
+        Assert.Contains($"href=\"/organizer/games/{api.TestGame.Id}\"", dashboardHtml);
+        Assert.Contains("Editar", dashboardHtml);
     }
 
     [Fact]
-    public async Task OrganizerDashboardHttp_StatusActionClosesTheSelectedGame()
+    public async Task OrganizerGameDetailsHttp_ShowsTheStatusActionAndParticipantList()
     {
         var api = new FakeCourtConnectApiClient(Guid.NewGuid(), "Organizer", includeOwnedGame: true);
         await using var factory = CreateFactory(api);
@@ -257,17 +303,13 @@ public sealed class RegisterFormHttpTests
         });
         await SignInAsOrganizerAsync(client);
 
-        using var dashboardResponse = await client.GetAsync("/organizer");
-        var dashboardHtml = WebUtility.HtmlDecode(await dashboardResponse.Content.ReadAsStringAsync());
-        using var statusAction = CreateCommandForm(dashboardHtml, $"status:{api.TestGame.Id}");
+        using var detailResponse = await client.GetAsync($"/organizer/games/{api.TestGame.Id}");
+        var detailHtml = WebUtility.HtmlDecode(await detailResponse.Content.ReadAsStringAsync());
 
-        using var statusResponse = await client.PostAsync("/organizer", statusAction);
-        var statusHtml = WebUtility.HtmlDecode(await statusResponse.Content.ReadAsStringAsync());
-
-        Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
-        Assert.Equal("Closed", api.LastUpdatedStatus);
-        Assert.Contains("El partido se ha cerrado", statusHtml);
-        Assert.Contains("Estado: Cerrado", statusHtml);
+        Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+        Assert.Contains("Estado: Abierto", detailHtml);
+        Assert.Contains("Cerrar partido", detailHtml);
+        Assert.Contains("Jugadores inscritos", detailHtml);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(FakeCourtConnectApiClient api)
@@ -293,16 +335,6 @@ public sealed class RegisterFormHttpTests
         ]);
         using var loginPost = await client.PostAsync("/login", loginContent);
         Assert.True(loginPost.IsSuccessStatusCode || loginPost.StatusCode == HttpStatusCode.Redirect);
-    }
-
-    private static FormUrlEncodedContent CreateCommandForm(string html, string command)
-    {
-        return new FormUrlEncodedContent(
-        [
-            new KeyValuePair<string, string>("_handler", "ManageOrganizerGames"),
-            new KeyValuePair<string, string>("__RequestVerificationToken", ExtractAntiforgeryToken(html)),
-            new KeyValuePair<string, string>("ManagementForm.Command", command)
-        ]);
     }
 
     private static string ExtractAntiforgeryToken(string html)
@@ -350,6 +382,10 @@ public sealed class RegisterFormHttpTests
         public bool ProfileCreated { get; private set; }
 
         public bool TokenRefreshed { get; private set; }
+
+        public IReadOnlyList<PlayerRegistrationDto> MyRegistrations { get; init; } = [];
+
+        public Guid? LastCancelledRegistrationId { get; private set; }
 
         public Task<IReadOnlyList<GameDto>> GetGamesAsync(CancellationToken cancellationToken)
         {
@@ -406,6 +442,26 @@ public sealed class RegisterFormHttpTests
             return Task.FromResult<IReadOnlyList<CourtDto>>([TestCourt]);
         }
 
+        public Task<CourtDto> CreateCourtAsync(
+            CreateCourtRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CourtDto(Guid.NewGuid(), request.Name, request.Location));
+        }
+
+        public Task<CourtDto> UpdateCourtAsync(
+            Guid courtId,
+            UpdateCourtRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CourtDto(courtId, request.Name, request.Location));
+        }
+
+        public Task DeleteCourtAsync(Guid courtId, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
         public Task<IReadOnlyList<GameDto>> GetMyOrganizedGamesAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<GameDto>>(_ownedGames.ToArray());
@@ -452,6 +508,13 @@ public sealed class RegisterFormHttpTests
             return Task.FromResult(game);
         }
 
+        public Task<IReadOnlyList<GameParticipantDto>> GetGameParticipantsAsync(
+            Guid gameId,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<GameParticipantDto>>([]);
+        }
+
         public Task<PlayerDto> GetMyProfileAsync(CancellationToken cancellationToken)
         {
             if (_playerProfile is null)
@@ -493,9 +556,15 @@ public sealed class RegisterFormHttpTests
                 "Confirmed"));
         }
 
+        public Task CancelRegistrationAsync(Guid registrationId, CancellationToken cancellationToken)
+        {
+            LastCancelledRegistrationId = registrationId;
+            return Task.CompletedTask;
+        }
+
         public Task<IReadOnlyList<PlayerRegistrationDto>> GetMyRegistrationsAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult<IReadOnlyList<PlayerRegistrationDto>>([]);
+            return Task.FromResult(MyRegistrations);
         }
 
         private GameDto CreateTestGame()
