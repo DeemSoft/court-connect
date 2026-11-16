@@ -14,16 +14,16 @@ namespace DeemSoft.CourtConnect.IntegrationTests;
 public sealed class ApiExceptionHandlingMiddlewareTests
 {
     [Theory]
-    [InlineData(404)]
-    [InlineData(409)]
-    [InlineData(400)]
-    public async Task InvokeAsync_WhenKnownErrorOccurs_WritesProblemDetails(int status)
+    [InlineData(404, "No se encontró el recurso")]
+    [InlineData(409, "Conflicto")]
+    [InlineData(400, "Solicitud no válida")]
+    public async Task InvokeAsync_WhenKnownErrorOccurs_WritesProblemDetails(int status, string expectedTitle)
     {
         Exception exception = status switch
         {
             404 => new EntityNotFoundException("Game", Guid.NewGuid()),
-            409 => new ConflictException("The registration conflicts with the game state."),
-            _ => new ArgumentException("The request is invalid.")
+            409 => new ConflictException("La inscripción entra en conflicto con el estado del partido."),
+            _ => new ArgumentException("La solicitud no es válida.")
         };
         var middleware = new ApiExceptionHandlingMiddleware(
             _ => throw exception,
@@ -33,7 +33,7 @@ public sealed class ApiExceptionHandlingMiddlewareTests
         await middleware.InvokeAsync(context);
 
         Assert.Equal(status, context.Response.StatusCode);
-        AssertProblemDetails(context.Response.Body, status);
+        AssertProblemDetails(context.Response.Body, status, expectedTitle);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class ApiExceptionHandlingMiddlewareTests
         await middleware.InvokeAsync(context);
 
         Assert.Equal((int)HttpStatusCode.Conflict, context.Response.StatusCode);
-        AssertProblemDetails(context.Response.Body, (int)HttpStatusCode.Conflict);
+        AssertProblemDetails(context.Response.Body, (int)HttpStatusCode.Conflict, "Conflicto");
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class ApiExceptionHandlingMiddlewareTests
     public async Task InvokeAsync_WhenResponseAlreadyStarted_ThrowsInsteadOfWritingAnotherResponse()
     {
         var middleware = new ApiExceptionHandlingMiddleware(
-            _ => throw new ArgumentException("Invalid input."),
+            _ => throw new ArgumentException("Entrada no válida."),
             NullLogger<ApiExceptionHandlingMiddleware>.Instance);
         var context = CreateContext();
         context.Features.Set<IHttpResponseFeature>(new StartedResponseFeature());
@@ -90,11 +90,12 @@ public sealed class ApiExceptionHandlingMiddlewareTests
         return context;
     }
 
-    private static void AssertProblemDetails(Stream responseBody, int expectedStatus)
+    private static void AssertProblemDetails(Stream responseBody, int expectedStatus, string expectedTitle)
     {
         responseBody.Position = 0;
         using var document = JsonDocument.Parse(responseBody);
         Assert.Equal(expectedStatus, document.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal(expectedTitle, document.RootElement.GetProperty("title").GetString());
         Assert.Equal("/test", document.RootElement.GetProperty("instance").GetString());
     }
 

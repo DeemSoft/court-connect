@@ -2,7 +2,14 @@
         AdditionalAssemblies="new[] { typeof(Games).Assembly }"
         NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized>
+                <main class="page">
+                    <p class="message message-info">Inicia sesión para acceder a esta página.</p>
+                    <p><a href="/login">Iniciar sesión</a></p>
+                </main>
+            </NotAuthorized>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>

@@ -77,8 +77,7 @@ public sealed class GamePageTests : BunitContext
     public async Task Register_WhenApiReturnsConflict_ShowsTheProblemMessage()
     {
         var game = CreateGame();
-        var player = new PlayerOptionDto(Guid.NewGuid(), "base-player");
-        var api = new FakeCourtConnectApiClient([game], [player])
+        var api = new FakeCourtConnectApiClient([game])
         {
             RegistrationException = new CourtConnectApiException(
                 System.Net.HttpStatusCode.Conflict,
@@ -87,39 +86,58 @@ public sealed class GamePageTests : BunitContext
         Services.AddSingleton<ICourtConnectApiClient>(api);
 
         var page = Render<RegisterForGame>(parameters => parameters.Add(component => component.Id, game.Id));
-        page.Find("select").Change(player.Id.ToString());
         await page.Find("form").SubmitAsync();
 
         Assert.Contains("el partido está completo", page.Markup);
-        Assert.Equal((game.Id, player.Id), api.LastRegistration);
+        Assert.Equal(game.Id, api.LastRegistrationGameId);
     }
 
     [Fact]
     public async Task Register_WhenApiSucceeds_ShowsConfirmation()
     {
         var game = CreateGame();
-        var player = new PlayerOptionDto(Guid.NewGuid(), "base-player");
-        var api = new FakeCourtConnectApiClient([game], [player]);
+        var api = new FakeCourtConnectApiClient([game]);
         Services.AddSingleton<ICourtConnectApiClient>(api);
 
         var page = Render<RegisterForGame>(parameters => parameters.Add(component => component.Id, game.Id));
-        page.Find("select").Change(player.Id.ToString());
         await page.Find("form").SubmitAsync();
 
         Assert.Contains("Tu inscripción se ha confirmado", page.Markup);
+        Assert.Equal(game.Id, api.LastRegistrationGameId);
     }
 
     [Fact]
-    public async Task Register_WithoutAPlayer_ShowsValidationMessage()
+    public void Registrations_ShowsTheCurrentPlayersEnrolledGame()
     {
         var game = CreateGame();
-        Services.AddSingleton<ICourtConnectApiClient>(
-            new FakeCourtConnectApiClient([game], [new PlayerOptionDto(Guid.NewGuid(), "base-player")]));
+        var api = new FakeCourtConnectApiClient([game])
+        {
+            MyRegistrations =
+            [
+                new PlayerRegistrationDto(
+                    new RegistrationDto(Guid.NewGuid(), game.Id, Guid.NewGuid(), DateTimeOffset.UtcNow, 10m, "Confirmed"),
+                    game)
+            ]
+        };
+        Services.AddSingleton<ICourtConnectApiClient>(api);
+
+        var page = Render<Registrations>();
+
+        Assert.Contains("Inscripciones", page.Markup);
+        Assert.Contains("Pista Central", page.Markup);
+        Assert.Contains("Importe de la inscripción", page.Markup);
+    }
+
+    [Fact]
+    public async Task Register_DoesNotRenderAPlayerSelector()
+    {
+        var game = CreateGame();
+        Services.AddSingleton<ICourtConnectApiClient>(new FakeCourtConnectApiClient([game]));
 
         var page = Render<RegisterForGame>(parameters => parameters.Add(component => component.Id, game.Id));
-        await page.Find("form").SubmitAsync();
 
-        Assert.Contains("Selecciona un jugador", page.Markup);
+        Assert.Empty(page.FindAll("select"));
+        Assert.DoesNotContain("Jugador", page.Markup);
     }
 
     [Fact]
@@ -149,17 +167,17 @@ public sealed class GamePageTests : BunitContext
             "Open");
     }
 
-    private sealed class FakeCourtConnectApiClient(
-        IReadOnlyList<GameDto>? games = null,
-        IReadOnlyList<PlayerOptionDto>? players = null) : ICourtConnectApiClient
+    private sealed class FakeCourtConnectApiClient(IReadOnlyList<GameDto>? games = null) : ICourtConnectApiClient
     {
+        public IReadOnlyList<PlayerRegistrationDto> MyRegistrations { get; init; } = [];
+
         public CourtConnectApiException? RegistrationException { get; init; }
 
         public CourtConnectApiException? GamesException { get; init; }
 
         public CourtConnectApiException? GameException { get; init; }
 
-        public (Guid GameId, Guid PlayerId)? LastRegistration { get; private set; }
+        public Guid? LastRegistrationGameId { get; private set; }
 
         public Task<IReadOnlyList<GameDto>> GetGamesAsync(CancellationToken cancellationToken)
         {
@@ -169,6 +187,41 @@ public sealed class GamePageTests : BunitContext
             }
 
             return Task.FromResult(games ?? Array.Empty<GameDto>());
+        }
+
+        public Task<CurrentAccountDto> GetCurrentAccountAsync(string accessToken, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CurrentAccountDto("player@example.com", ["Player"]));
+        }
+
+        public Task<CurrentAccountDto> GetMyAccountAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CurrentAccountDto("player@example.com", ["Player"]));
+        }
+
+        public Task<IReadOnlyList<CourtDto>> GetCourtsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<CourtDto>>([]);
+        }
+
+        public Task<IReadOnlyList<GameDto>> GetMyOrganizedGamesAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(games ?? Array.Empty<GameDto>());
+        }
+
+        public Task<GameDto> CreateGameAsync(CreateGameRequestDto request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(CreateGame());
+        }
+
+        public Task<GameDto> UpdateGameAsync(Guid gameId, UpdateGameRequestDto request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(CreateGame());
+        }
+
+        public Task<GameDto> SetGameStatusAsync(Guid gameId, string status, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(CreateGame() with { Status = status });
         }
 
         public Task<GameDto> GetGameAsync(Guid gameId, CancellationToken cancellationToken)
@@ -184,17 +237,39 @@ public sealed class GamePageTests : BunitContext
                 : Task.FromResult(game);
         }
 
-        public Task<IReadOnlyList<PlayerOptionDto>> GetPlayersAsync(CancellationToken cancellationToken)
+        public Task RegisterAccountAsync(string email, string password, CancellationToken cancellationToken)
         {
-            return Task.FromResult(players ?? Array.Empty<PlayerOptionDto>());
+            return Task.CompletedTask;
         }
 
-        public Task<RegistrationDto> RegisterAsync(
-            Guid gameId,
-            Guid playerId,
+        public Task<IdentityTokenResponse> LoginAsync(
+            string email,
+            string password,
             CancellationToken cancellationToken)
         {
-            LastRegistration = (gameId, playerId);
+            return Task.FromResult(new IdentityTokenResponse("Bearer", "access", 3600, "refresh"));
+        }
+
+        public Task<IdentityTokenResponse> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new IdentityTokenResponse("Bearer", "access", 3600, "refresh"));
+        }
+
+        public Task<PlayerDto> GetMyProfileAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new PlayerDto(Guid.NewGuid(), "player", "Test Player", new DateOnly(2000, 1, 1), "player@example.com"));
+        }
+
+        public Task<PlayerDto> CreateMyProfileAsync(
+            CreatePlayerProfileRequest request,
+            CancellationToken cancellationToken)
+        {
+            return GetMyProfileAsync(cancellationToken);
+        }
+
+        public Task<RegistrationDto> RegisterAsync(Guid gameId, CancellationToken cancellationToken)
+        {
+            LastRegistrationGameId = gameId;
             if (RegistrationException is not null)
             {
                 return Task.FromException<RegistrationDto>(RegistrationException);
@@ -203,10 +278,15 @@ public sealed class GamePageTests : BunitContext
             return Task.FromResult(new RegistrationDto(
                 Guid.NewGuid(),
                 gameId,
-                playerId,
+                Guid.NewGuid(),
                 DateTimeOffset.UtcNow,
                 10m,
                 "Confirmed"));
+        }
+
+        public Task<IReadOnlyList<PlayerRegistrationDto>> GetMyRegistrationsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(MyRegistrations);
         }
     }
 }

@@ -9,6 +9,20 @@ body {
     margin: 0;
 }
 
+.site-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem max(1rem, calc((100% - 52rem) / 2));
+    background: #fff;
+    border-bottom: 1px solid #d6dee5;
+}
+
+.site-brand {
+    margin-right: auto;
+    font-weight: 700;
+}
+
 a {
     color: #075e54;
 }
@@ -131,6 +145,15 @@ a {
     font-weight: 700;
     text-decoration: none;
     cursor: pointer;
+}
+
+.button-secondary {
+    color: #075e54;
+    background: #e4f0ed;
+}
+
+.game-detail h3 {
+    margin-top: 0;
 }
 
 @media (max-width: 36rem) {

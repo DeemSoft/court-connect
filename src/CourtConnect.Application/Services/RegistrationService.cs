@@ -14,7 +14,7 @@ public sealed class RegistrationService(
     TimeProvider timeProvider,
     ILogger<RegistrationService> logger)
 {
-    public async Task<RegistrationDto> RegisterAsync(Guid gameId, Guid playerId, CancellationToken cancellationToken)
+    public async Task<RegistrationDto> RegisterAsync(Guid gameId, Guid identityUserId, CancellationToken cancellationToken)
     {
         var game = await games.GetByIdAsync(gameId, cancellationToken);
         if (game is null)
@@ -23,11 +23,14 @@ public sealed class RegistrationService(
             throw new EntityNotFoundException("Game", gameId);
         }
 
-        var player = await players.GetByIdAsync(playerId, cancellationToken);
+        var player = await players.GetByIdentityUserIdAsync(identityUserId, cancellationToken);
         if (player is null)
         {
-            logger.LogWarning("Registration rejected: player {PlayerId} was not found for game {GameId}.", playerId, gameId);
-            throw new EntityNotFoundException("Player", playerId);
+            logger.LogWarning(
+                "Registration rejected: account {IdentityUserId} has no player profile for game {GameId}.",
+                identityUserId,
+                gameId);
+            throw new EntityNotFoundException("Player profile", identityUserId);
         }
 
         Registration registration;
@@ -41,7 +44,7 @@ public sealed class RegistrationService(
             logger.LogWarning(
                 exception,
                 "Registration rejected for player {PlayerId} and game {GameId}.",
-                playerId,
+                player.Id,
                 gameId);
             throw new ConflictException(exception.Message);
         }
@@ -52,7 +55,7 @@ public sealed class RegistrationService(
         logger.LogInformation(
             "Registration {RegistrationId} created for player {PlayerId} and game {GameId}.",
             registration.Id,
-            playerId,
+            player.Id,
             gameId);
 
         return DtoMapper.ToDto(registration);
@@ -69,11 +72,48 @@ public sealed class RegistrationService(
         return gameRegistrations.Select(DtoMapper.ToDto).ToArray();
     }
 
-    public async Task CancelAsync(Guid registrationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PlayerRegistrationDto>> GetByIdentityUserIdAsync(
+        Guid identityUserId,
+        CancellationToken cancellationToken)
+    {
+        // La identidad se resuelve a su ficha; nunca se acepta un identificador de jugador enviado por el cliente.
+        var player = await players.GetByIdentityUserIdAsync(identityUserId, cancellationToken);
+        if (player is null)
+        {
+            throw new EntityNotFoundException("Player profile", identityUserId);
+        }
+
+        var playerRegistrations = await registrations.GetByPlayerIdAsync(player.Id, cancellationToken);
+        var playerGameIds = playerRegistrations.Select(registration => registration.GameId).Distinct().ToArray();
+        var playerGames = await games.GetByIdsAsync(playerGameIds, cancellationToken);
+        var gamesById = playerGames.ToDictionary(game => game.Id);
+
+        return playerRegistrations
+            .Select(registration => new PlayerRegistrationDto(
+                DtoMapper.ToDto(registration),
+                DtoMapper.ToDto(gamesById.TryGetValue(registration.GameId, out var game)
+                    ? game
+                    : throw new EntityNotFoundException("Game", registration.GameId))))
+            .OrderBy(item => item.Game.StartAt)
+            .ToArray();
+    }
+
+    public async Task CancelAsync(Guid registrationId, Guid identityUserId, CancellationToken cancellationToken)
     {
         var registration = await registrations.GetByIdAsync(registrationId, cancellationToken);
         if (registration is null)
         {
+            throw new EntityNotFoundException("Registration", registrationId);
+        }
+
+        var player = await players.GetByIdentityUserIdAsync(identityUserId, cancellationToken);
+        if (player is null || player.Id != registration.PlayerId)
+        {
+            logger.LogWarning(
+                "Registration cancellation rejected for account {IdentityUserId} and registration {RegistrationId}.",
+                identityUserId,
+                registrationId);
+            // Devolver el mismo 404 que para una inscripción inexistente evita revelar inscripciones ajenas.
             throw new EntityNotFoundException("Registration", registrationId);
         }
 

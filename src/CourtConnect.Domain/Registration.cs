@@ -43,7 +43,7 @@ public sealed class Registration
     {
         if (Status == RegistrationStatus.Cancelled)
         {
-            throw new InvalidOperationException("The registration is already cancelled.");
+            throw new InvalidOperationException("La inscripción ya está cancelada.");
         }
 
         Status = RegistrationStatus.Cancelled;

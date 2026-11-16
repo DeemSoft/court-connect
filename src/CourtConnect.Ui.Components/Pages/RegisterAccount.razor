@@ -1,0 +1,79 @@
+@page "/register"
+@inject ICourtConnectApiClient ApiClient
+@inject IWebAuthenticationService AuthenticationService
+@inject NavigationManager Navigation
+
+<PageTitle>Crear cuenta</PageTitle>
+
+<main class="page">
+    <h1>Crear cuenta de jugador</h1>
+    <p>Después de registrarte, completa tu perfil para poder apuntarte a partidos.</p>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+
+    <EditForm Model="FormModel!" OnValidSubmit="RegisterAsync" FormName="RegisterAccount" Enhance>
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <label for="email">Correo electrónico</label>
+        <InputText id="email" class="form-control" type="email" autocomplete="email" @bind-Value="FormModel!.Email" />
+        <ValidationMessage For="@(() => FormModel!.Email)" />
+        <label for="password">Contraseña</label>
+        <InputText id="password" class="form-control" type="password" autocomplete="new-password" @bind-Value="FormModel!.Password" />
+        <ValidationMessage For="@(() => FormModel!.Password)" />
+        <label for="confirm-password">Repite la contraseña</label>
+        <InputText id="confirm-password" class="form-control" type="password" autocomplete="new-password" @bind-Value="FormModel!.ConfirmPassword" />
+        <ValidationMessage For="@(() => FormModel!.ConfirmPassword)" />
+        <button class="button" type="submit">Crear cuenta</button>
+    </EditForm>
+</main>
+
+@code {
+    private const string FormName = "RegisterAccount";
+
+    [SupplyParameterFromForm(FormName = FormName)]
+    private RegisterForm? FormModel { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        FormModel ??= new RegisterForm();
+    }
+
+    private async Task RegisterAsync()
+    {
+        _errorMessage = null;
+        try
+        {
+            await ApiClient.RegisterAccountAsync(FormModel!.Email, FormModel.Password, CancellationToken.None);
+            await AuthenticationService.SignInAsync(
+                FormModel.Email,
+                FormModel.Password,
+                isPersistent: false,
+                CancellationToken.None);
+            Navigation.NavigateTo("/profile", forceLoad: true);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private sealed class RegisterForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce tu correo electrónico.")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Introduce un correo válido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce una contraseña.")]
+        [System.ComponentModel.DataAnnotations.StringLength(100, MinimumLength = 6)]
+        public string Password { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Repite la contraseña.")]
+        [System.ComponentModel.DataAnnotations.Compare(nameof(Password), ErrorMessage = "Las contraseñas no coinciden.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

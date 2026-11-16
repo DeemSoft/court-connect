@@ -11,4 +11,6 @@ public interface IRegistrationRepository
     Task<Registration?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Registration>> GetByGameIdAsync(Guid gameId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Registration>> GetByPlayerIdAsync(Guid playerId, CancellationToken cancellationToken);
 }

@@ -1,0 +1,76 @@
+@page "/login"
+@inject ICourtConnectApiClient ApiClient
+@inject IWebAuthenticationService AuthenticationService
+@inject NavigationManager Navigation
+
+<PageTitle>Iniciar sesión</PageTitle>
+
+<main class="page">
+    <h1>Iniciar sesión</h1>
+    <p>Accede a tu cuenta para apuntarte a partidos.</p>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+
+    <EditForm Model="FormModel!" OnValidSubmit="LoginAsync" FormName="Login" Enhance>
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <label for="email">Correo electrónico</label>
+        <InputText id="email" class="form-control" type="email" autocomplete="email" @bind-Value="FormModel!.Email" />
+        <ValidationMessage For="@(() => FormModel!.Email)" />
+        <label for="password">Contraseña</label>
+        <InputText id="password" class="form-control" type="password" autocomplete="current-password" @bind-Value="FormModel!.Password" />
+        <ValidationMessage For="@(() => FormModel!.Password)" />
+        <label>
+            <InputCheckbox @bind-Value="FormModel!.RememberMe" />
+            Mantener la sesión
+        </label>
+        <button class="button" type="submit">Iniciar sesión</button>
+    </EditForm>
+</main>
+
+@code {
+    private const string FormName = "Login";
+
+    [SupplyParameterFromForm(FormName = FormName)]
+    private LoginForm? FormModel { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        FormModel ??= new LoginForm();
+    }
+
+    private async Task LoginAsync()
+    {
+        _errorMessage = null;
+        try
+        {
+            await AuthenticationService.SignInAsync(
+                FormModel!.Email,
+                FormModel.Password,
+                FormModel.RememberMe,
+                CancellationToken.None);
+            Navigation.NavigateTo("/games", forceLoad: true);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private sealed class LoginForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce tu correo electrónico.")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Introduce un correo válido.")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce tu contraseña.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

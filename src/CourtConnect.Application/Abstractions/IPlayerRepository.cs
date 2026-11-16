@@ -10,6 +10,8 @@ public interface IPlayerRepository
 
     Task<Player?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<Player?> GetByIdentityUserIdAsync(Guid identityUserId, CancellationToken cancellationToken);
+
     Task<Player?> GetByNicknameAsync(string nickname, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Player>> GetAllAsync(CancellationToken cancellationToken);

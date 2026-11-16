@@ -1,0 +1,142 @@
+@page "/profile"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject ICourtConnectApiClient ApiClient
+@inject IWebAuthenticationService AuthenticationService
+
+<PageTitle>Mi perfil</PageTitle>
+
+<main class="page">
+    <h1>Mi perfil</h1>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    else if (_account is not null)
+    {
+        <section class="game-detail">
+            <h2>Datos de la cuenta</h2>
+            <p><strong>Correo electrónico:</strong> @(_account.Email ?? "No indicado")</p>
+            <p><strong>Tipo de cuenta:</strong> @AccountRoleNames</p>
+        </section>
+
+        @if (_player is not null)
+        {
+            <section class="game-detail">
+                <h2>Datos de jugador</h2>
+                <p><strong>Nombre de usuario:</strong> @_player.Nickname</p>
+                <p><strong>Nombre completo:</strong> @_player.FullName</p>
+                <p><strong>Fecha de nacimiento:</strong> @_player.DateOfBirth.ToString("dd/MM/yyyy", SpanishCulture)</p>
+                <p><strong>Correo electrónico:</strong> @_player.Email</p>
+            </section>
+            <p class="message message-success" role="status">Tu perfil de jugador ya está completo.</p>
+            <p><a href="/games">Ver partidos</a></p>
+        }
+        else
+        {
+            <p>Todavía no tienes un perfil de jugador. Completa estos datos para gestionar tus inscripciones.</p>
+            <EditForm Model="FormModel!" OnValidSubmit="SaveProfileAsync" FormName="PlayerProfile" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <label for="nickname">Nombre de usuario</label>
+                <InputText id="nickname" class="form-control" autocomplete="nickname" @bind-Value="FormModel!.Nickname" />
+                <ValidationMessage For="@(() => FormModel!.Nickname)" />
+                <label for="full-name">Nombre completo</label>
+                <InputText id="full-name" class="form-control" autocomplete="name" @bind-Value="FormModel!.FullName" />
+                <ValidationMessage For="@(() => FormModel!.FullName)" />
+                <label for="date-of-birth">Fecha de nacimiento</label>
+                <InputDate id="date-of-birth" class="form-control" @bind-Value="FormModel!.DateOfBirth" />
+                <ValidationMessage For="@(() => FormModel!.DateOfBirth)" />
+                <button class="button" type="submit">Guardar perfil</button>
+            </EditForm>
+        }
+    }
+</main>
+
+@code {
+    private const string FormName = "PlayerProfile";
+
+    [SupplyParameterFromForm(FormName = FormName)]
+    private ProfileForm? FormModel { get; set; }
+
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    private CurrentAccountDto? _account;
+    private PlayerDto? _player;
+    private string? _errorMessage;
+    private string AccountRoleNames => _account is null || _account.Roles.Count == 0
+        ? "Sin roles asignados"
+        : string.Join(", ", _account.Roles.Select(GetRoleDisplayName));
+
+    protected override async Task OnInitializedAsync()
+    {
+        FormModel ??= new ProfileForm();
+        try
+        {
+            _account = await ApiClient.GetMyAccountAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+            return;
+        }
+
+        try
+        {
+            // Una cuenta de Identity puede existir antes de que su propietario cree la ficha de jugador.
+            _player = await ApiClient.GetMyProfileAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception) when (exception.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // El 404 de /players/me indica que aún falta crear la ficha, no que falte la cuenta.
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        _errorMessage = null;
+        try
+        {
+            _player = await ApiClient.CreateMyProfileAsync(
+                new CreatePlayerProfileRequest(
+                    FormModel!.Nickname,
+                    FormModel.FullName,
+                    FormModel.DateOfBirth
+                        ?? throw new InvalidOperationException("La fecha de nacimiento es obligatoria.")),
+                CancellationToken.None);
+            await AuthenticationService.RefreshAsync(CancellationToken.None);
+            // Crear la ficha también asigna el rol Player, por eso se vuelve a consultar la cuenta actualizada.
+            _account = await ApiClient.GetMyAccountAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private static string GetRoleDisplayName(string role) => role switch
+    {
+        "Organizer" => "Organizador",
+        "Player" => "Jugador",
+        _ => "Otro"
+    };
+
+    private sealed class ProfileForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce un nombre de usuario.")]
+        [System.ComponentModel.DataAnnotations.StringLength(50)]
+        public string Nickname { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce tu nombre completo.")]
+        [System.ComponentModel.DataAnnotations.StringLength(150)]
+        public string FullName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Introduce tu fecha de nacimiento.")]
+        public DateOnly? DateOfBirth { get; set; }
+    }
+}

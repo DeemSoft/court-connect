@@ -32,4 +32,18 @@ public sealed class EfRegistrationRepository(CourtConnectDbContext context) : IR
             .OrderBy(registration => registration.CreatedAt)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Registration>> GetByPlayerIdAsync(
+        Guid playerId,
+        CancellationToken cancellationToken)
+    {
+        // Las canceladas se conservan como historial, pero no cuentan como inscripciones activas del jugador.
+        return await context.Registrations
+            .AsNoTracking()
+            .Where(registration =>
+                registration.PlayerId == playerId
+                && registration.Status == RegistrationStatus.Confirmed)
+            .OrderByDescending(registration => registration.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
 }

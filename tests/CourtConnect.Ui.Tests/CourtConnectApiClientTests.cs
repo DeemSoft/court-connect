@@ -38,29 +38,121 @@ public sealed class CourtConnectApiClientTests
     }
 
     [Fact]
-    public async Task GetPlayersAsync_DeserializesTheSelectionOptions()
+    public async Task RegisterAccountAsync_PostsTheIdentityApiPayload()
     {
-        var playerId = Guid.NewGuid();
-        using var httpClient = CreateClient(HttpStatusCode.OK, $$"""[{"id":"{{playerId}}","nickname":"base-player"}]""");
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
         var api = new CourtConnectApiClient(httpClient);
 
-        var players = await api.GetPlayersAsync(CancellationToken.None);
+        await api.RegisterAccountAsync("player@example.com", "Strong-password-123!", CancellationToken.None);
 
-        var player = Assert.Single(players);
-        Assert.Equal(playerId, player.Id);
-        Assert.Equal("base-player", player.Nickname);
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal("/auth/register", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Contains("\"email\":\"player@example.com\"", handler.RequestBody);
+        Assert.Contains("\"password\":\"Strong-password-123!\"", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task LoginAsync_UsesBearerTokenModeAndDeserializesTokens()
+    {
+        using var httpClient = CreateClient(
+            HttpStatusCode.OK,
+            """{"tokenType":"Bearer","accessToken":"access-token","expiresIn":3600,"refreshToken":"refresh-token"}""");
+        var api = new CourtConnectApiClient(httpClient);
+
+        var tokens = await api.LoginAsync("player@example.com", "Strong-password-123!", CancellationToken.None);
+
+        Assert.Equal("Bearer", tokens.TokenType);
+        Assert.Equal("access-token", tokens.AccessToken);
+        Assert.Equal(3600, tokens.ExpiresIn);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_SendsTheRefreshTokenToIdentityApi()
+    {
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent(
+                """{"tokenType":"Bearer","accessToken":"new-access","expiresIn":3600,"refreshToken":"new-refresh"}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var tokens = await api.RefreshAsync("old-refresh", CancellationToken.None);
+
+        Assert.Equal("new-access", tokens.AccessToken);
+        Assert.Equal("/auth/refresh", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Contains("\"refreshToken\":\"old-refresh\"", handler.RequestBody);
+    }
+
+    [Fact]
+    public async Task GetCurrentAccountAsync_SendsTheSuppliedAccessToken()
+    {
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent("""{"email":"organizer@example.com","roles":["Organizer"]}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var account = await api.GetCurrentAccountAsync("organizer-access", CancellationToken.None);
+
+        Assert.Equal("/auth/me", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Equal("Bearer", handler.Request.Headers.Authorization!.Scheme);
+        Assert.Equal("organizer-access", handler.Request.Headers.Authorization.Parameter);
+        Assert.Contains("Organizer", account.Roles);
+    }
+
+    [Fact]
+    public async Task GetMyAccountAsync_UsesTheAuthenticatedAccountEndpoint()
+    {
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent("""{"email":"player@example.com","roles":["Player"]}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var account = await api.GetMyAccountAsync(CancellationToken.None);
+
+        Assert.Equal("/auth/me", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Equal("player@example.com", account.Email);
+        Assert.Contains("Player", account.Roles);
+    }
+
+    [Fact]
+    public async Task CreateGameAsync_PostsTheOrganizerGamePayload()
+    {
+        var gameId = Guid.NewGuid();
+        var courtId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = JsonContent(
+                $$"""{"id":"{{gameId}}","courtId":"{{courtId}}","courtName":"Central","startAt":"2027-01-01T18:00:00Z","durationMinutes":90,"capacity":4,"availableSlots":4,"minimumAge":16,"pricePerPlayer":10,"status":"Open"}""")
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var game = await api.CreateGameAsync(
+            new CreateGameRequestDto(courtId, DateTimeOffset.UtcNow.AddDays(2), 90, 4, 16, 10m),
+            CancellationToken.None);
+
+        Assert.Equal(gameId, game.Id);
+        Assert.Equal(HttpMethod.Post, handler.Request!.Method);
+        Assert.Equal("/games", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Contains($"\"courtId\":\"{courtId}\"", handler.RequestBody);
     }
 
     [Theory]
     [InlineData(
         HttpStatusCode.NotFound,
-        "Resource not found",
-        "The requested game does not exist.",
+        "No se encontró el recurso",
+        "No se encontró el partido solicitado.",
         "No se encontró el recurso solicitado.")]
     [InlineData(
         HttpStatusCode.Conflict,
-        "Conflict",
-        "The game is full.",
+        "Conflicto",
+        "El partido está completo.",
         "No se pudo completar la acción")]
     public async Task GetGameAsync_WhenApiReturnsProblemDetails_ThrowsReadableException(
         HttpStatusCode statusCode,
@@ -114,7 +206,7 @@ public sealed class CourtConnectApiClientTests
     }
 
     [Fact]
-    public async Task RegisterAsync_PostsTheSelectedPlayerAndDeserializesTheRegistration()
+    public async Task RegisterAsync_PostsWithoutAcceptingAPlayerId()
     {
         var gameId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
@@ -127,14 +219,61 @@ public sealed class CourtConnectApiClientTests
         using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
         var api = new CourtConnectApiClient(httpClient);
 
-        var registration = await api.RegisterAsync(gameId, playerId, CancellationToken.None);
+        var registration = await api.RegisterAsync(gameId, CancellationToken.None);
 
         Assert.Equal(registrationId, registration.Id);
         Assert.Equal(gameId, registration.GameId);
         Assert.Equal(playerId, registration.PlayerId);
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
         Assert.Equal($"/games/{gameId}/registrations", handler.Request.RequestUri!.AbsolutePath);
-        Assert.Contains($"\"playerId\":\"{playerId}\"", handler.RequestBody);
+        Assert.Null(handler.Request.Content);
+    }
+
+    [Fact]
+    public async Task GetMyRegistrationsAsync_RequestsTheAuthenticatedPlayersRegistrations()
+    {
+        var registrationId = Guid.NewGuid();
+        var gameId = Guid.NewGuid();
+        var courtId = Guid.NewGuid();
+        var handler = new FakeHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent(
+                $$"""
+            [
+              {
+                "registration": {
+                  "id": "{{registrationId}}",
+                  "gameId": "{{gameId}}",
+                  "playerId": "{{Guid.NewGuid()}}",
+                  "createdAt": "2027-01-01T12:00:00Z",
+                  "amount": 10,
+                  "status": "Confirmed"
+                },
+                "game": {
+                  "id": "{{gameId}}",
+                  "courtId": "{{courtId}}",
+                  "courtName": "Pista Central",
+                  "startAt": "2027-01-02T18:00:00Z",
+                  "durationMinutes": 90,
+                  "capacity": 4,
+                  "availableSlots": 3,
+                  "minimumAge": 16,
+                  "pricePerPlayer": 10,
+                  "status": "Open"
+                }
+              }
+            ]
+            """)
+        });
+        using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+        var api = new CourtConnectApiClient(httpClient);
+
+        var registrations = await api.GetMyRegistrationsAsync(CancellationToken.None);
+
+        var result = Assert.Single(registrations);
+        Assert.Equal("/registrations/mine", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Equal(registrationId, result.Registration.Id);
+        Assert.Equal("Pista Central", result.Game.CourtName);
     }
 
     private static HttpClient CreateClient(

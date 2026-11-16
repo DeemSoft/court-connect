@@ -1,4 +1,5 @@
 using DeemSoft.CourtConnect.Domain;
+using DeemSoft.CourtConnect.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,6 +16,15 @@ public sealed class PlayerConfiguration : IEntityTypeConfiguration<Player>
 
         builder.HasIndex(player => player.Nickname)
             .IsUnique();
+
+        builder.HasIndex(player => player.IdentityUserId)
+            .IsUnique()
+            .HasFilter("[IdentityUserId] IS NOT NULL");
+
+        builder.HasOne<CourtConnectUser>()
+            .WithMany()
+            .HasForeignKey(player => player.IdentityUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(player => player.Nickname)
             .HasMaxLength(50)
