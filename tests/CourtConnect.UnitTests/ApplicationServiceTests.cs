@@ -251,5 +251,10 @@ public sealed class ApplicationServiceTests
         {
             return Task.FromResult(Items.Values.SingleOrDefault(player => player.Nickname == nickname));
         }
+
+        public Task<IReadOnlyList<Player>> GetAllAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<Player>>(Items.Values.OrderBy(player => player.Nickname).ToArray());
+        }
     }
 }

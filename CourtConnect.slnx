@@ -4,9 +4,12 @@
     <Project Path="src/CourtConnect.Application/CourtConnect.Application.csproj" />
     <Project Path="src/CourtConnect.Domain/CourtConnect.Domain.csproj" />
     <Project Path="src/CourtConnect.Infrastructure/CourtConnect.Infrastructure.csproj" />
+    <Project Path="src/CourtConnect.Ui.Components/CourtConnect.Ui.Components.csproj" />
+    <Project Path="src/CourtConnect.Ui.Web/CourtConnect.Ui.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CourtConnect.IntegrationTests/CourtConnect.IntegrationTests.csproj" />
+    <Project Path="tests/CourtConnect.Ui.Tests/CourtConnect.Ui.Tests.csproj" />
     <Project Path="tests/CourtConnect.UnitTests/CourtConnect.UnitTests.csproj" />
   </Folder>
 </Solution>

@@ -72,6 +72,8 @@ players.MapPost("", async (CreatePlayerRequest request, PlayerService service, C
     var player = await service.CreateAsync(request, cancellationToken);
     return TypedResults.Created($"/players/{player.Id}", player);
 });
+players.MapGet("", async (PlayerService service, CancellationToken cancellationToken) =>
+    TypedResults.Ok(await service.GetAllAsync(cancellationToken)));
 players.MapGet("/{id:guid}", async (Guid id, PlayerService service, CancellationToken cancellationToken) =>
     TypedResults.Ok(await service.GetByIdAsync(id, cancellationToken)));
 

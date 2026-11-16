@@ -49,6 +49,16 @@ dotnet run --project src/CourtConnect.Api
 
 En Development, el documento OpenAPI está disponible en `http://localhost:5258/openapi/v1.json`. Las peticiones de ejemplo y algunos casos de error están en [`src/CourtConnect.Api/CourtConnect.Api.http`](src/CourtConnect.Api/CourtConnect.Api.http).
 
+## Web local
+
+Con la API y SQL Server en ejecución, inicia la aplicación Blazor con:
+
+```powershell
+dotnet run --project src/CourtConnect.Ui.Web
+```
+
+La URL base de la API se configura en `src/CourtConnect.Ui.Web/appsettings.json` (`CourtConnectApi:BaseUrl`).
+
 ## Dominio
 
 Consulta [`docs/domain.md`](docs/domain.md).

@@ -33,6 +33,11 @@ public static class DtoMapper
         return new PlayerDto(player.Id, player.Nickname, player.FullName, player.DateOfBirth, player.Email);
     }
 
+    public static PlayerOptionDto ToOptionDto(Player player)
+    {
+        return new PlayerOptionDto(player.Id, player.Nickname);
+    }
+
     public static RegistrationDto ToDto(Registration registration)
     {
         return new RegistrationDto(

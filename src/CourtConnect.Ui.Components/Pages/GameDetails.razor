@@ -1,0 +1,66 @@
+@page "/games/{Id:guid}"
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Ficha del partido</PageTitle>
+
+<main class="page">
+    <p><a href="/games">← Volver a los partidos</a></p>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    else if (_game is not null)
+    {
+        <article class="game-detail">
+            <p class="eyebrow">Ficha del partido</p>
+            <h1>@_game.CourtName</h1>
+            <dl>
+                <dt>Fecha</dt>
+                <dd>@_game.StartAt.ToString("f", SpanishCulture)</dd>
+                <dt>Duración</dt>
+                <dd>@_game.DurationMinutes minutos</dd>
+                <dt>Plazas libres</dt>
+                <dd>@_game.AvailableSlots de @_game.Capacity</dd>
+                <dt>Edad mínima</dt>
+                <dd>@_game.MinimumAge años</dd>
+                <dt>Precio por jugador</dt>
+                <dd>@_game.PricePerPlayer.ToString("C", SpanishCulture)</dd>
+            </dl>
+
+            @if (_game.AvailableSlots == 0 || _game.Status != "Open")
+            {
+                <p class="message message-info">Completo</p>
+            }
+            else
+            {
+                <a class="button" href="@($"/games/{_game.Id}/register")">Apuntarme</a>
+            }
+        </article>
+    }
+</main>
+
+@code {
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GameDto? _game;
+    private string? _errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _errorMessage = null;
+        try
+        {
+            _game = await ApiClient.GetGameAsync(Id, CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _game = null;
+            _errorMessage = exception.Message;
+        }
+    }
+}

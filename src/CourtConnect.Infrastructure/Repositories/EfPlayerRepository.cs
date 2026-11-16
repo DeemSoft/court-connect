@@ -25,4 +25,11 @@ public sealed class EfPlayerRepository(CourtConnectDbContext context) : IPlayerR
     {
         return context.Players.SingleOrDefaultAsync(player => player.Nickname == nickname, cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Player>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return await context.Players
+            .OrderBy(player => player.Nickname)
+            .ToListAsync(cancellationToken);
+    }
 }
