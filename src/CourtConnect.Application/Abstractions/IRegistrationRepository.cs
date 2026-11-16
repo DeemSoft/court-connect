@@ -1,3 +1,4 @@
+using DeemSoft.CourtConnect.Application.Dtos;
 using DeemSoft.CourtConnect.Domain;
 
 namespace DeemSoft.CourtConnect.Application.Abstractions;
@@ -11,6 +12,10 @@ public interface IRegistrationRepository
     Task<Registration?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Registration>> GetByGameIdAsync(Guid gameId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<GameParticipantDto>> GetPlayersByGameIdAsync(
+        Guid gameId,
+        CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Registration>> GetByPlayerIdAsync(Guid playerId, CancellationToken cancellationToken);
 }

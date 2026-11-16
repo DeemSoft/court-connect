@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using DeemSoft.CourtConnect.Ui.Web.Services;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,13 +26,80 @@ public sealed class AccessTokenHandlerTests
             HttpContext = new DefaultHttpContext { RequestServices = services }
         };
         var innerHandler = new CapturingHandler();
-        using var handler = new AccessTokenHandler(accessor) { InnerHandler = innerHandler };
+        using var handler = new AccessTokenHandler(
+            accessor,
+            new FakeAuthenticationStateProvider(new ClaimsPrincipal(new ClaimsIdentity())))
+        {
+            InnerHandler = innerHandler
+        };
         using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
 
         using var response = await client.GetAsync("players/me");
 
         Assert.Equal("Bearer", innerHandler.Authorization?.Scheme);
         Assert.Equal("access-token", innerHandler.Authorization?.Parameter);
+    }
+
+    [Fact]
+    public async Task SendAsync_UsesTheAccessTokenClaimWhenThereIsNoHttpContext()
+    {
+        var identity = new ClaimsIdentity(
+            [new Claim("courtconnect:access_token", "circuit-access-token")],
+            "test");
+        var authenticationStateProvider = new FakeAuthenticationStateProvider(new ClaimsPrincipal(identity));
+        var innerHandler = new CapturingHandler();
+        using var handler = new AccessTokenHandler(new HttpContextAccessor(), authenticationStateProvider)
+        {
+            InnerHandler = innerHandler
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+
+        using var response = await client.GetAsync("games/mine");
+
+        Assert.Equal("Bearer", innerHandler.Authorization?.Scheme);
+        Assert.Equal("circuit-access-token", innerHandler.Authorization?.Parameter);
+    }
+
+    [Fact]
+    public async Task SendAsync_DoesNotRequestCircuitAuthenticationStateWhenHttpContextHasNoToken()
+    {
+        var ticket = new AuthenticationTicket(
+            new ClaimsPrincipal(new ClaimsIdentity()),
+            new AuthenticationProperties(),
+            "test");
+        var services = new ServiceCollection()
+            .AddSingleton<IAuthenticationService>(new FakeAuthenticationService(ticket))
+            .BuildServiceProvider();
+        var accessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext { RequestServices = services }
+        };
+        var innerHandler = new CapturingHandler();
+        using var handler = new AccessTokenHandler(accessor, new UnavailableAuthenticationStateProvider())
+        {
+            InnerHandler = innerHandler
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
+
+        using var response = await client.PostAsync("auth/login", content: null);
+
+        Assert.Null(innerHandler.Authorization);
+    }
+
+    private sealed class FakeAuthenticationStateProvider(ClaimsPrincipal user) : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync()
+        {
+            return Task.FromResult(new AuthenticationState(user));
+        }
+    }
+
+    private sealed class UnavailableAuthenticationStateProvider : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync()
+        {
+            throw new InvalidOperationException("Circuit authentication state is unavailable.");
+        }
     }
 
     private sealed class FakeAuthenticationService(AuthenticationTicket ticket) : IAuthenticationService

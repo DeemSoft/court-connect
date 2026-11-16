@@ -104,6 +104,26 @@ courts.MapPost("", async (CreateCourtRequest request, CourtService service, Canc
     .WithName("CreateCourt")
     .WithSummary("Create a court")
     .RequireAuthorization(CourtConnectRoles.Organizer);
+courts.MapPut("/{id:guid}", async (
+    Guid id,
+    UpdateCourtRequest request,
+    CourtService service,
+    CancellationToken cancellationToken) =>
+    TypedResults.Ok(await service.UpdateAsync(id, request, cancellationToken)))
+    .WithName("UpdateCourt")
+    .WithSummary("Update a court")
+    .RequireAuthorization(CourtConnectRoles.Organizer);
+courts.MapDelete("/{id:guid}", async (
+    Guid id,
+    CourtService service,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteAsync(id, cancellationToken);
+    return TypedResults.NoContent();
+})
+    .WithName("DeleteCourt")
+    .WithSummary("Delete a court when it has no associated games")
+    .RequireAuthorization(CourtConnectRoles.Organizer);
 
 var games = app.MapGroup("/games").WithTags("Games");
 games.MapGet("/mine", async (
@@ -157,6 +177,18 @@ games.MapPut("/{id:guid}/status", async (
         cancellationToken)))
     .WithName("SetGameStatus")
     .WithSummary("Open or close a game owned by the authenticated organizer")
+    .RequireAuthorization(CourtConnectRoles.Organizer);
+games.MapGet("/{id:guid}/participants", async (
+    Guid id,
+    ClaimsPrincipal user,
+    RegistrationService service,
+    CancellationToken cancellationToken) =>
+    TypedResults.Ok(await service.GetPlayersByGameIdAsync(
+        id,
+        GetIdentityUserId(user),
+        cancellationToken)))
+    .WithName("GetGameParticipants")
+    .WithSummary("List only participant nicknames and names for the authenticated organizer's game")
     .RequireAuthorization(CourtConnectRoles.Organizer);
 
 var players = app.MapGroup("/players").WithTags("Players");

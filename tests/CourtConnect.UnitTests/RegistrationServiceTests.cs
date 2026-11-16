@@ -1,4 +1,5 @@
 using DeemSoft.CourtConnect.Application.Abstractions;
+using DeemSoft.CourtConnect.Application.Dtos;
 using DeemSoft.CourtConnect.Application.Exceptions;
 using DeemSoft.CourtConnect.Application.Services;
 using DeemSoft.CourtConnect.Domain;
@@ -77,6 +78,34 @@ public sealed class RegistrationServiceTests
     }
 
     [Fact]
+    public async Task GetPlayersByGameIdAsync_ReturnsParticipantsForTheOwningOrganizer()
+    {
+        var fixture = new Fixture();
+        fixture.RegistrationRepository.Participants = [new GameParticipantDto("player", "Test Player")];
+
+        var participants = await fixture.Service.GetPlayersByGameIdAsync(
+            fixture.Game.Id,
+            fixture.UserId,
+            CancellationToken.None);
+
+        var participant = Assert.Single(participants);
+        Assert.Equal("player", participant.Nickname);
+        Assert.Equal("Test Player", participant.FullName);
+    }
+
+    [Fact]
+    public async Task GetPlayersByGameIdAsync_WhenGameBelongsToAnotherOrganizer_ThrowsForbidden()
+    {
+        var fixture = new Fixture();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            fixture.Service.GetPlayersByGameIdAsync(
+                fixture.Game.Id,
+                Guid.NewGuid(),
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CancelAsync_WithConfirmedRegistration_CancelsAndPersists()
     {
         var fixture = new Fixture();
@@ -87,6 +116,25 @@ public sealed class RegistrationServiceTests
 
         Assert.Equal(RegistrationStatus.Cancelled, registration.Status);
         Assert.Equal(0, fixture.Game.CountActiveRegistrations());
+    }
+
+    [Fact]
+    public async Task CancelAsync_WhenFewerThan72HoursRemain_ThrowsConflictAndKeepsRegistrationActive()
+    {
+        var fixture = new Fixture();
+        fixture.Game.UpdateDetails(
+            Now.AddHours(71),
+            fixture.Game.Duration,
+            fixture.Game.Capacity,
+            fixture.Game.MinimumAge,
+            fixture.Game.PricePerPlayer);
+        var registration = fixture.Game.Register(fixture.Player, Now.AddMinutes(-1));
+        fixture.RegistrationRepository.Seed(registration);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            fixture.Service.CancelAsync(registration.Id, fixture.UserId, CancellationToken.None));
+
+        Assert.Equal(RegistrationStatus.Confirmed, registration.Status);
     }
 
     [Fact]
@@ -144,7 +192,15 @@ public sealed class RegistrationServiceTests
             var capacity = failure == RegistrationFailure.GameFull ? 2 : 4;
             var court = new Court("Central", "Barcelona");
 
-            Game = new Game(court, startAt, TimeSpan.FromHours(2), capacity, minimumAge, 10m, status);
+            Game = new Game(
+                court,
+                startAt,
+                TimeSpan.FromHours(2),
+                capacity,
+                minimumAge,
+                10m,
+                status,
+                organizerUserId: UserId);
             Player = CreatePlayer("player", identityUserId: UserId);
 
             if (failure != RegistrationFailure.GameNotFound)
@@ -286,6 +342,8 @@ public sealed class RegistrationServiceTests
     {
         public Dictionary<Guid, Registration> Items { get; } = [];
 
+        public IReadOnlyList<GameParticipantDto> Participants { get; set; } = [];
+
         public void Seed(Registration registration)
         {
             Items.Add(registration.Id, registration);
@@ -311,6 +369,13 @@ public sealed class RegistrationServiceTests
                 .Where(registration => registration.GameId == gameId)
                 .ToArray();
             return Task.FromResult(registrations);
+        }
+
+        public Task<IReadOnlyList<GameParticipantDto>> GetPlayersByGameIdAsync(
+            Guid gameId,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Participants);
         }
 
         public Task<IReadOnlyList<Registration>> GetByPlayerIdAsync(

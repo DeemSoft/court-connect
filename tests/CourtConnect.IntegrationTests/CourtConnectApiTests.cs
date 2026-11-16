@@ -75,11 +75,17 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
             "/courts",
             JsonContent("{\"name\":\"New court\",\"location\":\"Barcelona\"}"));
         var protectedCourtList = await anonymousClient.GetAsync("/courts");
+        var protectedCourtUpdate = await anonymousClient.PutAsync(
+            $"/courts/{Guid.NewGuid()}",
+            JsonContent("{\"name\":\"Updated court\",\"location\":\"Barcelona\"}"));
+        var protectedCourtDelete = await anonymousClient.DeleteAsync($"/courts/{Guid.NewGuid()}");
         var protectedOwnedGames = await anonymousClient.GetAsync("/games/mine");
 
         Assert.Equal(HttpStatusCode.OK, publicGames.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, protectedCreate.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, protectedCourtList.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, protectedCourtUpdate.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, protectedCourtDelete.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, protectedOwnedGames.StatusCode);
 
         var playerIdentity = await CreateIdentityClientAsync(CourtConnectRoles.Player, createProfile: true);
@@ -88,10 +94,16 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
             "/courts",
             JsonContent("{\"name\":\"New court\",\"location\":\"Barcelona\"}"));
         var forbiddenCourtList = await playerClient.GetAsync("/courts");
+        var forbiddenCourtUpdate = await playerClient.PutAsync(
+            $"/courts/{Guid.NewGuid()}",
+            JsonContent("{\"name\":\"Updated court\",\"location\":\"Barcelona\"}"));
+        var forbiddenCourtDelete = await playerClient.DeleteAsync($"/courts/{Guid.NewGuid()}");
         var forbiddenOwnedGames = await playerClient.GetAsync("/games/mine");
 
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenCreate.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenCourtList.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenCourtUpdate.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenCourtDelete.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenOwnedGames.StatusCode);
     }
 
@@ -137,6 +149,120 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, courtsResponse.StatusCode);
         Assert.NotNull(courts);
         Assert.Contains(courts, item => item.Id == court.Id);
+    }
+
+    [Fact]
+    public async Task OrganizerCanUpdateAndDeleteCourtWithoutGames()
+    {
+        var court = await CreateCourtAsync();
+        var organizer = await CreateIdentityClientAsync(CourtConnectRoles.Organizer);
+        using var client = organizer.Client;
+
+        var updateResponse = await client.PutAsJsonAsync(
+            $"/courts/{court.Id}",
+            new { Name = "Updated court", Location = "Badalona" },
+            JsonOptions);
+        var updatedCourt = await updateResponse.Content.ReadFromJsonAsync<CourtResponse>(JsonOptions);
+        var deleteResponse = await client.DeleteAsync($"/courts/{court.Id}");
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        Assert.NotNull(updatedCourt);
+        Assert.Equal("Updated court", updatedCourt.Name);
+        Assert.Equal("Badalona", updatedCourt.Location);
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+
+        await using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<CourtConnectDbContext>();
+        Assert.False(await dbContext.Courts.AnyAsync(item => item.Id == court.Id));
+    }
+
+    [Fact]
+    public async Task DeleteCourt_WhenCourtHasGames_ReturnsConflictAndKeepsCourt()
+    {
+        var court = await CreateCourtAsync();
+        await CreateGameAsync(court, DateTimeOffset.UtcNow.AddDays(10));
+        var organizer = await CreateIdentityClientAsync(CourtConnectRoles.Organizer);
+        using var client = organizer.Client;
+
+        var response = await client.DeleteAsync($"/courts/{court.Id}");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        await AssertProblemDetailsAsync(response);
+
+        await using var scope = fixture.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<CourtConnectDbContext>();
+        Assert.True(await dbContext.Courts.AnyAsync(item => item.Id == court.Id));
+    }
+
+    [Fact]
+    public async Task UpdateOrDeleteCourt_WhenCourtDoesNotExist_ReturnsNotFound()
+    {
+        var organizer = await CreateIdentityClientAsync(CourtConnectRoles.Organizer);
+        using var client = organizer.Client;
+        var courtId = Guid.NewGuid();
+
+        var updateResponse = await client.PutAsJsonAsync(
+            $"/courts/{courtId}",
+            new { Name = "Updated court", Location = "Badalona" },
+            JsonOptions);
+        var deleteResponse = await client.DeleteAsync($"/courts/{courtId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GameParticipants_RequireTheOwningOrganizerAndReturnOnlyPlayerNames()
+    {
+        var court = await CreateCourtAsync();
+        var owner = await CreateIdentityClientAsync(CourtConnectRoles.Organizer);
+        var otherOrganizer = await CreateIdentityClientAsync(CourtConnectRoles.Organizer);
+        var player = await CreateIdentityClientAsync(CourtConnectRoles.Player, createProfile: true);
+        var cancelledPlayer = await CreateIdentityClientAsync(CourtConnectRoles.Player, createProfile: true);
+        var game = await CreateGameAsync(
+            court,
+            DateTimeOffset.UtcNow.AddDays(10),
+            organizerUserId: owner.UserId);
+        using var ownerClient = owner.Client;
+        using var otherClient = otherOrganizer.Client;
+        using var playerClient = player.Client;
+        using var cancelledPlayerClient = cancelledPlayer.Client;
+        using var anonymousClient = fixture.Factory.CreateClient();
+        var registrationResponse = await playerClient.PostAsync(
+            $"/games/{game.Id}/registrations",
+            content: null);
+        var cancelledRegistrationResponse = await cancelledPlayerClient.PostAsync(
+            $"/games/{game.Id}/registrations",
+            content: null);
+        var cancelledRegistration = await cancelledRegistrationResponse.Content
+            .ReadFromJsonAsync<RegistrationResponse>(JsonOptions);
+        Assert.NotNull(cancelledRegistration);
+        var cancellationResponse = await cancelledPlayerClient.PostAsync(
+            $"/registrations/{cancelledRegistration.Id}/cancel",
+            content: null);
+        var anonymousResponse = await anonymousClient.GetAsync($"/games/{game.Id}/participants");
+        var playerResponse = await playerClient.GetAsync($"/games/{game.Id}/participants");
+        var ownerResponse = await ownerClient.GetAsync($"/games/{game.Id}/participants");
+        var otherResponse = await otherClient.GetAsync($"/games/{game.Id}/participants");
+        var missingGameResponse = await ownerClient.GetAsync($"/games/{Guid.NewGuid()}/participants");
+        var responseBody = await ownerResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Created, registrationResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, cancelledRegistrationResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, cancellationResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, playerResponse.StatusCode);
+        Assert.True(ownerResponse.IsSuccessStatusCode, responseBody);
+        Assert.Equal(HttpStatusCode.Forbidden, otherResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missingGameResponse.StatusCode);
+        var participants = JsonSerializer.Deserialize<List<GameParticipantResponse>>(responseBody, JsonOptions);
+        var participant = Assert.Single(participants!);
+        Assert.Equal(player.Player!.Nickname, participant.Nickname);
+        Assert.Equal(player.Player.FullName, participant.FullName);
+        Assert.DoesNotContain(cancelledPlayer.Player!.Nickname, responseBody);
+        Assert.DoesNotContain("email", responseBody.ToLowerInvariant());
+        Assert.DoesNotContain("playerid", responseBody.ToLowerInvariant());
+        Assert.DoesNotContain("dateofbirth", responseBody.ToLowerInvariant());
     }
 
     [Fact]
@@ -569,6 +695,29 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
     }
 
     [Fact]
+    public async Task CancelRegistration_WhenFewerThan72HoursRemain_Returns409AndKeepsRegistrationActive()
+    {
+        var court = await CreateCourtAsync();
+        var game = await CreateGameAsync(court, DateTimeOffset.UtcNow.AddHours(71));
+        var identity = await CreateIdentityClientAsync(CourtConnectRoles.Player, createProfile: true);
+        using var client = identity.Client;
+        var registrationResponse = await client.PostAsync($"/games/{game.Id}/registrations", content: null);
+        var registration = await registrationResponse.Content.ReadFromJsonAsync<RegistrationResponse>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Created, registrationResponse.StatusCode);
+        Assert.NotNull(registration);
+        var cancelResponse = await client.PostAsync($"/registrations/{registration.Id}/cancel", content: null);
+        var myRegistrationsResponse = await client.GetAsync("/registrations/mine");
+        var myRegistrations = await myRegistrationsResponse.Content
+            .ReadFromJsonAsync<List<PlayerRegistrationWithGameResponse>>(JsonOptions);
+
+        Assert.Equal(HttpStatusCode.Conflict, cancelResponse.StatusCode);
+        await AssertProblemDetailsAsync(cancelResponse);
+        Assert.NotNull(myRegistrations);
+        Assert.Contains(myRegistrations, item => item.Registration.Id == registration.Id);
+    }
+
+    [Fact]
     public async Task CancelRegistration_WhenRegistrationDoesNotExist_Returns404()
     {
         var identity = await CreateIdentityClientAsync(CourtConnectRoles.Player, createProfile: true);
@@ -790,6 +939,8 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
     private sealed record PlayerResponse(Guid Id, string Nickname, string FullName, DateOnly DateOfBirth, string Email);
 
     private sealed record PlayerOptionResponse(Guid Id, string Nickname);
+
+    private sealed record GameParticipantResponse(string Nickname, string FullName);
 
     private sealed record RegistrationResponse(
         Guid Id,

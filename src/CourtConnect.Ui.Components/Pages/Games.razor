@@ -1,12 +1,13 @@
 @page "/"
 @page "/games"
+@rendermode InteractiveServer
 @inject ICourtConnectApiClient ApiClient
 
 <PageTitle>Partidos abiertos</PageTitle>
 
-<main class="page">
+<main class="page games-page">
     <header class="page-header">
-        <p class="eyebrow">CourtConnect</p>
+        <p class="eyebrow">Partidos</p>
         <h1>Partidos abiertos</h1>
         <p>Encuentra un partido y reserva tu plaza.</p>
     </header>
@@ -25,18 +26,58 @@
     }
     else
     {
-        <section class="game-list" aria-label="Partidos disponibles">
-            @foreach (var game in _games)
-            {
-                <article class="game-card" @key="game.Id">
-                    <div>
-                        <h2><a href="@($"/games/{game.Id}")">@game.CourtName</a></h2>
-                        <p>@game.StartAt.ToString("f", SpanishCulture)</p>
-                    </div>
-                    <p class="slots">@game.AvailableSlots plazas libres</p>
-                </article>
-            }
+        <section class="game-filters" aria-label="Filtros de partidos">
+            <label for="court-filter">
+                Buscar por pista
+                <select id="court-filter" class="game-filter-select" @bind="_selectedCourtId">
+                    <option value="">Todas las pistas</option>
+                    @foreach (var court in CourtOptions)
+                    {
+                        <option value="@court.Id">@court.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="availability-filter">
+                <input id="available-only" type="checkbox" @bind="_onlyAvailable" />
+                Solo partidos con plazas disponibles
+            </label>
         </section>
+
+        @if (FilteredGames.Count == 0)
+        {
+            <p class="empty-state">No hay partidos que coincidan con los filtros seleccionados.</p>
+        }
+        else
+        {
+            <section class="game-list" aria-label="Partidos disponibles">
+                @foreach (var game in FilteredGames)
+                {
+                    var localStartAt = game.StartAt.ToLocalTime();
+                    var hasAvailableSlots = game.AvailableSlots > 0;
+                    <article class="game-card" @key="game.Id">
+                        <div class="game-date" aria-label="@localStartAt.ToString("d MMMM yyyy", SpanishCulture)">
+                            <span>@localStartAt.ToString("MMM", SpanishCulture).TrimEnd('.').ToUpper(SpanishCulture)</span>
+                            <strong>@localStartAt.Day</strong>
+                        </div>
+                        <div class="game-card-info">
+                            <h2>@game.CourtName</h2>
+                            <p>@localStartAt.ToString("dddd, d 'de' MMMM 'de' yyyy · HH:mm", SpanishCulture)</p>
+                        </div>
+                        <span class="availability-badge @(hasAvailableSlots ? "has-slots" : "is-full")">
+                            @game.AvailableSlots plazas libres
+                        </span>
+                        @if (hasAvailableSlots)
+                        {
+                            <a class="button" href="@($"/games/{game.Id}/register")">Reservar plaza</a>
+                        }
+                        else
+                        {
+                            <a class="button button-outline" href="@($"/games/{game.Id}")">Ver detalle</a>
+                        }
+                    </article>
+                }
+            </section>
+        }
     }
 </main>
 
@@ -45,17 +86,49 @@
         System.Globalization.CultureInfo.GetCultureInfo("es-ES");
 
     private IReadOnlyList<GameDto>? _games;
+    private string _selectedCourtId = string.Empty;
+    private bool _onlyAvailable;
     private string? _errorMessage;
+
+    private IReadOnlyList<CourtOption> CourtOptions =>
+        (_games ?? [])
+            .GroupBy(game => game.CourtId)
+            .Select(group => new CourtOption(group.Key.ToString(), group.First().CourtName))
+            .OrderBy(court => court.Name)
+            .ToArray();
+
+    private IReadOnlyList<GameDto> FilteredGames
+    {
+        get
+        {
+            IEnumerable<GameDto> filtered = _games ?? [];
+            if (Guid.TryParse(_selectedCourtId, out var courtId))
+            {
+                filtered = filtered.Where(game => game.CourtId == courtId);
+            }
+
+            if (_onlyAvailable)
+            {
+                filtered = filtered.Where(game => game.AvailableSlots > 0);
+            }
+
+            return filtered.OrderBy(game => game.StartAt).ToArray();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _games = await ApiClient.GetGamesAsync(CancellationToken.None);
+            _games = (await ApiClient.GetGamesAsync(CancellationToken.None))
+                .OrderBy(game => game.StartAt)
+                .ToArray();
         }
         catch (CourtConnectApiException exception)
         {
             _errorMessage = exception.Message;
         }
     }
+
+    private sealed record CourtOption(string Id, string Name);
 }

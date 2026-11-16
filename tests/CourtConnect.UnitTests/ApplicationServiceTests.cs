@@ -25,6 +25,54 @@ public sealed class ApplicationServiceTests
     }
 
     [Fact]
+    public async Task CourtService_UpdateAsync_UpdatesAndReturnsDto()
+    {
+        var repository = new FakeCourtRepository();
+        var court = new Court("Central", "Barcelona");
+        repository.Items.Add(court.Id, court);
+        var service = new CourtService(repository);
+
+        var result = await service.UpdateAsync(
+            court.Id,
+            new UpdateCourtRequest("Norte", "Badalona"),
+            CancellationToken.None);
+
+        Assert.Equal("Norte", result.Name);
+        Assert.Equal("Badalona", result.Location);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task CourtService_DeleteAsync_RemovesCourtWithoutGames()
+    {
+        var repository = new FakeCourtRepository();
+        var court = new Court("Central", "Barcelona");
+        repository.Items.Add(court.Id, court);
+        var service = new CourtService(repository);
+
+        await service.DeleteAsync(court.Id, CancellationToken.None);
+
+        Assert.Empty(repository.Items);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task CourtService_DeleteAsync_WhenCourtHasGames_ThrowsConflictAndKeepsCourt()
+    {
+        var repository = new FakeCourtRepository();
+        var court = new Court("Central", "Barcelona");
+        repository.Items.Add(court.Id, court);
+        repository.CourtsWithGames.Add(court.Id);
+        var service = new CourtService(repository);
+
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            service.DeleteAsync(court.Id, CancellationToken.None));
+
+        Assert.Contains(court.Id, repository.Items.Keys);
+        Assert.Equal(0, repository.SaveCount);
+    }
+
+    [Fact]
     public async Task GameService_GetOpenUpcomingAsync_UsesCurrentTimeAndMapsGames()
     {
         var repository = new FakeGameRepository();
@@ -250,6 +298,8 @@ public sealed class ApplicationServiceTests
     {
         public Dictionary<Guid, Court> Items { get; } = [];
 
+        public HashSet<Guid> CourtsWithGames { get; } = [];
+
         public int SaveCount { get; private set; }
 
         public Task AddAsync(Court court, CancellationToken cancellationToken)
@@ -268,6 +318,16 @@ public sealed class ApplicationServiceTests
         {
             Items.TryGetValue(id, out var court);
             return Task.FromResult(court);
+        }
+
+        public Task<bool> HasGamesAsync(Guid courtId, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(CourtsWithGames.Contains(courtId));
+        }
+
+        public void Remove(Court court)
+        {
+            Items.Remove(court.Id);
         }
 
         public Task<IReadOnlyList<Court>> GetAllAsync(CancellationToken cancellationToken)

@@ -83,6 +83,38 @@ public sealed class CourtConnectApiClient(HttpClient httpClient) : ICourtConnect
         return await ReadJsonAsync<List<CourtDto>>(response, cancellationToken);
     }
 
+    public async Task<CourtDto> CreateCourtAsync(
+        CreateCourtRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "courts")
+        {
+            Content = JsonContent.Create(request)
+        };
+        using var response = await SendAsync(message, cancellationToken);
+        return await ReadJsonAsync<CourtDto>(response, cancellationToken);
+    }
+
+    public async Task<CourtDto> UpdateCourtAsync(
+        Guid courtId,
+        UpdateCourtRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Put, $"courts/{courtId}")
+        {
+            Content = JsonContent.Create(request)
+        };
+        using var response = await SendAsync(message, cancellationToken);
+        return await ReadJsonAsync<CourtDto>(response, cancellationToken);
+    }
+
+    public async Task DeleteCourtAsync(Guid courtId, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"courts/{courtId}");
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<GameDto>> GetMyOrganizedGamesAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "games/mine");
@@ -128,6 +160,15 @@ public sealed class CourtConnectApiClient(HttpClient httpClient) : ICourtConnect
         return await ReadJsonAsync<GameDto>(response, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<GameParticipantDto>> GetGameParticipantsAsync(
+        Guid gameId,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"games/{gameId}/participants");
+        using var response = await SendAsync(request, cancellationToken);
+        return await ReadJsonAsync<List<GameParticipantDto>>(response, cancellationToken);
+    }
+
     public async Task<PlayerDto> GetMyProfileAsync(CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "players/me");
@@ -152,6 +193,13 @@ public sealed class CourtConnectApiClient(HttpClient httpClient) : ICourtConnect
         using var request = new HttpRequestMessage(HttpMethod.Post, $"games/{gameId}/registrations");
         using var response = await SendAsync(request, cancellationToken);
         return await ReadJsonAsync<RegistrationDto>(response, cancellationToken);
+    }
+
+    public async Task CancelRegistrationAsync(Guid registrationId, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"registrations/{registrationId}/cancel");
+        using var response = await SendAsync(request, cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task<IReadOnlyList<PlayerRegistrationDto>> GetMyRegistrationsAsync(

@@ -22,4 +22,32 @@ public sealed class CourtService(ICourtRepository courts)
 
         return DtoMapper.ToDto(court);
     }
+
+    public async Task<CourtDto> UpdateAsync(
+        Guid id,
+        UpdateCourtRequest request,
+        CancellationToken cancellationToken)
+    {
+        var court = await courts.GetByIdAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException("Court", id);
+
+        court.UpdateDetails(request.Name, request.Location);
+        await courts.SaveChangesAsync(cancellationToken);
+
+        return DtoMapper.ToDto(court);
+    }
+
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var court = await courts.GetByIdAsync(id, cancellationToken)
+            ?? throw new EntityNotFoundException("Court", id);
+
+        if (await courts.HasGamesAsync(id, cancellationToken))
+        {
+            throw new ConflictException("No se puede eliminar una pista que tiene partidos asociados.");
+        }
+
+        courts.Remove(court);
+        await courts.SaveChangesAsync(cancellationToken);
+    }
 }

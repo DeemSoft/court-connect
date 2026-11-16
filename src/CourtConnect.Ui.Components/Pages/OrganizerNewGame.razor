@@ -1,0 +1,172 @@
+@page "/organizer/games/new"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Organizer")]
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Nuevo partido</PageTitle>
+
+<main class="page page--new-game">
+    <p><a href="/organizer">← Volver a mis partidos</a></p>
+    <header class="page-header">
+        <p class="eyebrow">Organizador</p>
+        <h1>Nuevo partido</h1>
+        <p>Completa los datos para crear un partido en una de tus pistas.</p>
+    </header>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    @if (_successMessage is not null)
+    {
+        <p class="message message-success" role="status">@_successMessage</p>
+    }
+
+    @if (_courts is null)
+    {
+        <p role="status">Cargando pistas…</p>
+    }
+    else if (_courts.Count == 0)
+    {
+        <p class="message message-info">Primero necesitas crear una pista.</p>
+        <a class="button" href="/organizer/courts">Gestionar pistas</a>
+    }
+    else
+    {
+        <section class="game-detail form-panel">
+            <EditForm class="form-grid form-grid-three" Model="Form!" OnValidSubmit="CreateGameAsync" FormName="@FormName" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-field">
+                    <label for="create-court">Pista</label>
+                    <InputSelect id="create-court" class="form-control" @bind-Value="Form!.CourtId">
+                        <option value="">Selecciona una pista</option>
+                        @foreach (var court in _courts)
+                        {
+                            <option value="@court.Id">@court.Name — @court.Location</option>
+                        }
+                    </InputSelect>
+                    <ValidationMessage For="@(() => Form!.CourtId)" />
+                </div>
+                <div class="form-field">
+                    <label for="create-start">Fecha y hora</label>
+                    <InputDate id="create-start" class="form-control" Type="InputDateType.DateTimeLocal" @bind-Value="Form!.StartAt" />
+                    <ValidationMessage For="@(() => Form!.StartAt)" />
+                </div>
+                <div class="form-field">
+                    <label for="create-duration">Duración (minutos)</label>
+                    <InputNumber id="create-duration" class="form-control" @bind-Value="Form!.DurationMinutes" />
+                    <ValidationMessage For="@(() => Form!.DurationMinutes)" />
+                </div>
+                <div class="form-field">
+                    <label for="create-capacity">Plazas</label>
+                    <InputNumber id="create-capacity" class="form-control" @bind-Value="Form!.Capacity" />
+                    <ValidationMessage For="@(() => Form!.Capacity)" />
+                </div>
+                <div class="form-field">
+                    <label for="create-age">Edad mínima</label>
+                    <InputNumber id="create-age" class="form-control" @bind-Value="Form!.MinimumAge" />
+                    <ValidationMessage For="@(() => Form!.MinimumAge)" />
+                </div>
+                <div class="form-field">
+                    <label for="create-price">Precio por jugador (€)</label>
+                    <InputNumber id="create-price" class="form-control" @bind-Value="Form!.PricePerPlayer" />
+                    <ValidationMessage For="@(() => Form!.PricePerPlayer)" />
+                </div>
+                <div class="form-actions">
+                    <button class="button" type="submit">Crear partido</button>
+                    <a class="button button-outline" href="/organizer">Cancelar</a>
+                </div>
+            </EditForm>
+        </section>
+    }
+</main>
+
+@code {
+    private const string FormName = "CreateOrganizerGame";
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    [SupplyParameterFromForm(FormName = FormName)]
+    private CreateGameForm? Form { get; set; }
+
+    private IReadOnlyList<CourtDto>? _courts;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Form ??= new CreateGameForm();
+        try
+        {
+            _courts = await ApiClient.GetCourtsAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _courts = [];
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private async Task CreateGameAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            var form = Form
+                ?? throw new InvalidOperationException("The create-game form is unavailable.");
+            await ApiClient.CreateGameAsync(
+                new CreateGameRequestDto(
+                    form.CourtId,
+                    ToDateTimeOffset(form.StartAt),
+                    form.DurationMinutes,
+                    form.Capacity,
+                    form.MinimumAge,
+                    form.PricePerPlayer),
+                CancellationToken.None);
+            Form = new CreateGameForm();
+            _successMessage = "El partido se ha creado correctamente.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private static DateTimeOffset ToDateTimeOffset(DateTime? dateTime)
+    {
+        if (dateTime is null)
+        {
+            throw new InvalidOperationException("The game date and time are required.");
+        }
+
+        return new DateTimeOffset(dateTime.Value);
+    }
+
+    private sealed class CreateGameForm
+    {
+        public CreateGameForm()
+        {
+            StartAt = DateTime.Now.AddDays(1);
+        }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Selecciona una pista.")]
+        public Guid? CourtId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Indica la fecha y hora.")]
+        public DateTime? StartAt { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Range(1, 1440, ErrorMessage = "La duración debe estar entre 1 y 1440 minutos.")]
+        public int DurationMinutes { get; set; } = 90;
+
+        [System.ComponentModel.DataAnnotations.Range(2, 1000, ErrorMessage = "Las plazas deben estar entre 2 y 1000.")]
+        public int Capacity { get; set; } = 4;
+
+        [System.ComponentModel.DataAnnotations.Range(16, 120, ErrorMessage = "La edad mínima debe estar entre 16 y 120 años.")]
+        public int MinimumAge { get; set; } = 16;
+
+        [System.ComponentModel.DataAnnotations.Range(typeof(decimal), "0", "1000000", ErrorMessage = "El precio no puede ser negativo.")]
+        public decimal PricePerPlayer { get; set; } = 10m;
+    }
+}

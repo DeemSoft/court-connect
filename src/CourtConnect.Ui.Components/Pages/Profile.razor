@@ -5,8 +5,10 @@
 
 <PageTitle>Mi perfil</PageTitle>
 
-<main class="page">
-    <h1>Mi perfil</h1>
+<main class="page page--wide">
+    <header class="page-header">
+        <h1>Mi perfil</h1>
+    </header>
 
     @if (_errorMessage is not null)
     {
@@ -14,23 +16,57 @@
     }
     else if (_account is not null)
     {
-        <section class="game-detail">
+        <section class="game-detail profile-card">
             <h2>Datos de la cuenta</h2>
-            <p><strong>Correo electrónico:</strong> @(_account.Email ?? "No indicado")</p>
-            <p><strong>Tipo de cuenta:</strong> @AccountRoleNames</p>
+            <dl class="profile-data">
+                <div>
+                    <dt>Correo electrónico</dt>
+                    <dd>@(_account.Email ?? "No indicado")</dd>
+                </div>
+            </dl>
+            <div class="profile-account-roles">
+                <strong class="profile-role-label">Roles</strong>
+                <div class="profile-roles">
+                    @if (_account.Roles.Count == 0)
+                    {
+                        <span>Sin roles asignados</span>
+                    }
+                    else
+                    {
+                        @foreach (var role in _account.Roles)
+                        {
+                            <span class="role-badge">@GetRoleDisplayName(role)</span>
+                        }
+                    }
+                </div>
+            </div>
         </section>
 
         @if (_player is not null)
         {
-            <section class="game-detail">
+            <section class="game-detail profile-card">
                 <h2>Datos de jugador</h2>
-                <p><strong>Nombre de usuario:</strong> @_player.Nickname</p>
-                <p><strong>Nombre completo:</strong> @_player.FullName</p>
-                <p><strong>Fecha de nacimiento:</strong> @_player.DateOfBirth.ToString("dd/MM/yyyy", SpanishCulture)</p>
-                <p><strong>Correo electrónico:</strong> @_player.Email</p>
+                <dl class="profile-data">
+                    <div>
+                        <dt>Nombre de usuario</dt>
+                        <dd>@_player.Nickname</dd>
+                    </div>
+                    <div>
+                        <dt>Nombre completo</dt>
+                        <dd>@_player.FullName</dd>
+                    </div>
+                    <div>
+                        <dt>Fecha de nacimiento</dt>
+                        <dd>@_player.DateOfBirth.ToString("dd/MM/yyyy", SpanishCulture)</dd>
+                    </div>
+                    <div>
+                        <dt>Correo electrónico</dt>
+                        <dd>@_player.Email</dd>
+                    </div>
+                </dl>
             </section>
             <p class="message message-success" role="status">Tu perfil de jugador ya está completo.</p>
-            <p><a href="/games">Ver partidos</a></p>
+            <p><a class="button button-outline" href="/games">Ver partidos</a></p>
         }
         else
         {
@@ -65,10 +101,6 @@
     private CurrentAccountDto? _account;
     private PlayerDto? _player;
     private string? _errorMessage;
-    private string AccountRoleNames => _account is null || _account.Roles.Count == 0
-        ? "Sin roles asignados"
-        : string.Join(", ", _account.Roles.Select(GetRoleDisplayName));
-
     protected override async Task OnInitializedAsync()
     {
         FormModel ??= new ProfileForm();

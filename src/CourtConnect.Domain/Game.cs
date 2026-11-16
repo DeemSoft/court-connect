@@ -153,7 +153,7 @@ public sealed class Game
         return registration;
     }
 
-    // Cancelar una inscripción libera la plaza, pero solo antes de que empiece el partido y solo si pertenece a este juego.
+    // Cancelar una inscripción libera la plaza, pero requiere más de 72 horas de antelación y debe pertenecer a este partido.
     public void CancelRegistration(Registration registration, DateTimeOffset cancellationDate)
     {
         ArgumentNullException.ThrowIfNull(registration);
@@ -163,14 +163,14 @@ public sealed class Game
             throw new InvalidOperationException("La inscripción no pertenece a este partido.");
         }
 
-        if (cancellationDate >= StartAt)
-        {
-            throw new InvalidOperationException("Las inscripciones solo se pueden cancelar antes de que empiece el partido.");
-        }
-
         if (registration.Status == RegistrationStatus.Cancelled)
         {
             throw new InvalidOperationException("La inscripción ya está cancelada.");
+        }
+
+        if (StartAt - cancellationDate <= TimeSpan.FromHours(72))
+        {
+            throw new InvalidOperationException("La inscripción solo se puede cancelar con más de 72 horas de antelación al partido.");
         }
 
         registration.Cancel();

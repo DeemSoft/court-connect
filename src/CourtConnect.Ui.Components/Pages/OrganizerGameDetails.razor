@@ -1,0 +1,110 @@
+@page "/organizer/games/{Id:guid}"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Organizer")]
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Detalle del partido</PageTitle>
+
+<main class="page">
+    <p><a href="/organizer">← Volver a mis partidos</a></p>
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    else if (_game is null)
+    {
+        <p role="status">Cargando partido…</p>
+    }
+    else
+    {
+        <header class="page-header">
+            <p class="eyebrow">Detalle del partido</p>
+            <h1>@_game.CourtName</h1>
+            <p>@_game.StartAt.ToLocalTime().ToString("f", SpanishCulture)</p>
+            <p>@_game.AvailableSlots de @_game.Capacity plazas libres · Estado: @GetStatusDisplayName(_game.Status)</p>
+            <button class="button" type="button" @onclick="ToggleStatusAsync">
+                @(_game.Status == "Open" ? "Cerrar partido" : "Abrir partido")
+            </button>
+        </header>
+
+        @if (_successMessage is not null)
+        {
+            <p class="message message-success" role="status">@_successMessage</p>
+        }
+
+        <section>
+            <h2>Jugadores inscritos</h2>
+            @if (_participants is { Count: 0 })
+            {
+                <p class="empty-state">Todavía no hay jugadores inscritos.</p>
+            }
+            else if (_participants is not null)
+            {
+                <ul class="game-list">
+                    @foreach (var participant in _participants)
+                    {
+                        <li class="game-detail">
+                            <strong>@participant.Nickname</strong> — @participant.FullName
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private GameDto? _game;
+    private IReadOnlyList<GameParticipantDto>? _participants;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            _game = await ApiClient.GetGameAsync(Id, CancellationToken.None);
+            _participants = await ApiClient.GetGameParticipantsAsync(Id, CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _game = null;
+            _participants = [];
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private async Task ToggleStatusAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            var nextStatus = _game!.Status == "Open" ? "Closed" : "Open";
+            _game = await ApiClient.SetGameStatusAsync(Id, nextStatus, CancellationToken.None);
+            _successMessage = nextStatus == "Open"
+                ? "El partido está abierto."
+                : "El partido se ha cerrado.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private static string GetStatusDisplayName(string status) => status switch
+    {
+        "Open" => "Abierto",
+        "Closed" => "Cerrado",
+        "Draft" => "Borrador",
+        _ => "Desconocido"
+    };
+}

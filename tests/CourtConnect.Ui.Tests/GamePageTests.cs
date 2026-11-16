@@ -20,6 +20,63 @@ public sealed class GamePageTests : BunitContext
     }
 
     [Fact]
+    public void Games_OrdersGamesByStartDateAndTimeByDefault()
+    {
+        var laterGame = CreateGame() with
+        {
+            CourtName = "Más tarde",
+            StartAt = DateTimeOffset.UtcNow.AddDays(2)
+        };
+        var earlierGame = CreateGame() with
+        {
+            CourtName = "Más pronto",
+            StartAt = DateTimeOffset.UtcNow.AddDays(1)
+        };
+        Services.AddSingleton<ICourtConnectApiClient>(
+            new FakeCourtConnectApiClient([laterGame, earlierGame]));
+
+        var page = Render<Games>();
+
+        Assert.Equal(
+            ["Más pronto", "Más tarde"],
+            page.FindAll(".game-card h2").Select(heading => heading.TextContent));
+    }
+
+    [Fact]
+    public async Task Games_FiltersDynamicallyByCourtAndAvailableSlots()
+    {
+        var fullCourtId = Guid.NewGuid();
+        var availableCourtId = Guid.NewGuid();
+        var fullGame = CreateGame() with
+        {
+            CourtId = fullCourtId,
+            CourtName = "Pista llena",
+            AvailableSlots = 0
+        };
+        var availableGame = CreateGame() with
+        {
+            CourtId = availableCourtId,
+            CourtName = "Pista disponible",
+            AvailableSlots = 2
+        };
+        Services.AddSingleton<ICourtConnectApiClient>(
+            new FakeCourtConnectApiClient([availableGame, fullGame]));
+
+        var page = Render<Games>();
+
+        Assert.Equal(2, page.FindAll("#court-filter option").Count(option => option.GetAttribute("value") is not ""));
+        await page.Find("#court-filter").ChangeAsync(fullCourtId.ToString());
+        Assert.Single(page.FindAll(".game-card"));
+        Assert.Contains("Pista llena", page.Markup);
+
+        await page.Find("#court-filter").ChangeAsync(string.Empty);
+        await page.Find("#available-only").ChangeAsync(true);
+        Assert.Single(page.FindAll(".game-card"));
+        Assert.Contains("Pista disponible", page.Markup);
+        Assert.DoesNotContain("Pista llena", page.FindAll(".game-card h2").Select(heading => heading.TextContent));
+    }
+
+    [Fact]
     public void Games_WhenThereAreNoResults_ShowsAnEmptyState()
     {
         Services.AddSingleton<ICourtConnectApiClient>(new FakeCourtConnectApiClient());
@@ -123,7 +180,7 @@ public sealed class GamePageTests : BunitContext
 
         var page = Render<Registrations>();
 
-        Assert.Contains("Inscripciones", page.Markup);
+        Assert.Contains("Mis inscripciones", page.Markup);
         Assert.Contains("Pista Central", page.Markup);
         Assert.Contains("Importe de la inscripción", page.Markup);
     }
@@ -150,6 +207,50 @@ public sealed class GamePageTests : BunitContext
 
         Assert.Contains("ya no admite inscripciones", page.Markup);
         Assert.Empty(page.FindAll("form"));
+    }
+
+    [Fact]
+    public void Registrations_ShowsCancelActionWhenMoreThan72HoursRemain()
+    {
+        var game = CreateGame() with { StartAt = DateTimeOffset.UtcNow.AddHours(73) };
+        var registration = new RegistrationDto(
+            Guid.NewGuid(),
+            game.Id,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow,
+            10m,
+            "Confirmed");
+        Services.AddSingleton<ICourtConnectApiClient>(new FakeCourtConnectApiClient
+        {
+            MyRegistrations = [new PlayerRegistrationDto(registration, game)]
+        });
+
+        var page = Render<Registrations>();
+
+        Assert.Contains("Darme de baja", page.Markup);
+        Assert.Contains("name=\"FormModel.RegistrationId\"", page.Markup);
+    }
+
+    [Fact]
+    public void Registrations_HidesCancelActionWhen72HoursOrLessRemain()
+    {
+        var game = CreateGame() with { StartAt = DateTimeOffset.UtcNow.AddHours(71) };
+        var registration = new RegistrationDto(
+            Guid.NewGuid(),
+            game.Id,
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow,
+            10m,
+            "Confirmed");
+        Services.AddSingleton<ICourtConnectApiClient>(new FakeCourtConnectApiClient
+        {
+            MyRegistrations = [new PlayerRegistrationDto(registration, game)]
+        });
+
+        var page = Render<Registrations>();
+
+        Assert.DoesNotContain("Darme de baja", page.Markup);
+        Assert.Contains("Solo puedes darte de baja con más de 72 horas", page.Markup);
     }
 
     private static GameDto CreateGame()
@@ -179,6 +280,8 @@ public sealed class GamePageTests : BunitContext
 
         public Guid? LastRegistrationGameId { get; private set; }
 
+        public Guid? LastCancelledRegistrationId { get; private set; }
+
         public Task<IReadOnlyList<GameDto>> GetGamesAsync(CancellationToken cancellationToken)
         {
             if (GamesException is not null)
@@ -204,6 +307,26 @@ public sealed class GamePageTests : BunitContext
             return Task.FromResult<IReadOnlyList<CourtDto>>([]);
         }
 
+        public Task<CourtDto> CreateCourtAsync(
+            CreateCourtRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CourtDto(Guid.NewGuid(), request.Name, request.Location));
+        }
+
+        public Task<CourtDto> UpdateCourtAsync(
+            Guid courtId,
+            UpdateCourtRequestDto request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new CourtDto(courtId, request.Name, request.Location));
+        }
+
+        public Task DeleteCourtAsync(Guid courtId, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
         public Task<IReadOnlyList<GameDto>> GetMyOrganizedGamesAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(games ?? Array.Empty<GameDto>());
@@ -222,6 +345,13 @@ public sealed class GamePageTests : BunitContext
         public Task<GameDto> SetGameStatusAsync(Guid gameId, string status, CancellationToken cancellationToken)
         {
             return Task.FromResult(CreateGame() with { Status = status });
+        }
+
+        public Task<IReadOnlyList<GameParticipantDto>> GetGameParticipantsAsync(
+            Guid gameId,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<GameParticipantDto>>([]);
         }
 
         public Task<GameDto> GetGameAsync(Guid gameId, CancellationToken cancellationToken)
@@ -282,6 +412,12 @@ public sealed class GamePageTests : BunitContext
                 DateTimeOffset.UtcNow,
                 10m,
                 "Confirmed"));
+        }
+
+        public Task CancelRegistrationAsync(Guid registrationId, CancellationToken cancellationToken)
+        {
+            LastCancelledRegistrationId = registrationId;
+            return Task.CompletedTask;
         }
 
         public Task<IReadOnlyList<PlayerRegistrationDto>> GetMyRegistrationsAsync(CancellationToken cancellationToken)

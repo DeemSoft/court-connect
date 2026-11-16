@@ -22,4 +22,13 @@ public sealed class Court
     public string Name { get; private set; } = string.Empty;
 
     public string Location { get; private set; } = string.Empty;
+
+    public void UpdateDetails(string name, string location)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(location);
+
+        Name = name.Trim();
+        Location = location.Trim();
+    }
 }

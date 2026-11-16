@@ -1,0 +1,267 @@
+@page "/organizer/courts"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Organizer")]
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Gestión de pistas</PageTitle>
+
+<main class="page page--courts">
+    <p><a href="/organizer">← Volver a mis partidos</a></p>
+    <header class="page-header">
+        <p class="eyebrow">Organizador</p>
+        <h1>Gestionar pistas</h1>
+        <p>Añade pistas para poder organizar partidos en ellas.</p>
+    </header>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    @if (_successMessage is not null)
+    {
+        <p class="message message-success" role="status">@_successMessage</p>
+    }
+
+    @if (_showCreateForm)
+    {
+        <section class="game-detail form-panel">
+            <h2>Nueva pista</h2>
+            <EditForm class="form-grid form-grid-two" Model="_createForm" OnValidSubmit="CreateCourtAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-field">
+                    <label for="court-name">Nombre</label>
+                    <InputText id="court-name" class="form-control" @bind-Value="_createForm.Name" />
+                    <ValidationMessage For="@(() => _createForm.Name)" />
+                </div>
+                <div class="form-field">
+                    <label for="court-location">Ubicación</label>
+                    <InputText id="court-location" class="form-control" @bind-Value="_createForm.Location" />
+                    <ValidationMessage For="@(() => _createForm.Location)" />
+                </div>
+                <div class="form-actions">
+                    <button class="button" type="submit">Crear pista</button>
+                    <button class="button button-outline" type="button" @onclick="CancelCreate">Cancelar</button>
+                </div>
+            </EditForm>
+        </section>
+    }
+    else
+    {
+        <button class="button" type="button" @onclick="ShowCreateForm">Crear nueva pista</button>
+    }
+
+    <section class="court-section">
+        <h2>Pistas disponibles</h2>
+        @if (_courts is null)
+        {
+            <p role="status">Cargando pistas…</p>
+        }
+        else if (_courts.Count == 0)
+        {
+            <p class="empty-state">Todavía no hay pistas disponibles.</p>
+        }
+        else
+        {
+            <ul class="game-list court-list">
+                @foreach (var court in _courts)
+                {
+                    <li class="game-detail court-card" @key="court.Id">
+                        @if (_editingCourtId == court.Id)
+                        {
+                            <EditForm class="form-grid form-grid-two" Model="_editForm" OnValidSubmit="UpdateCourtAsync">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary />
+                                <div class="form-field">
+                                    <label for="@($"court-name-{court.Id}")">Nombre</label>
+                                    <InputText id="@($"court-name-{court.Id}")" class="form-control" @bind-Value="_editForm.Name" />
+                                    <ValidationMessage For="@(() => _editForm.Name)" />
+                                </div>
+                                <div class="form-field">
+                                    <label for="@($"court-location-{court.Id}")">Ubicación</label>
+                                    <InputText id="@($"court-location-{court.Id}")" class="form-control" @bind-Value="_editForm.Location" />
+                                    <ValidationMessage For="@(() => _editForm.Location)" />
+                                </div>
+                                <div class="form-actions">
+                                    <button class="button" type="submit">Guardar cambios</button>
+                                    <button class="button button-outline" type="button" @onclick="CancelEdit">Cancelar</button>
+                                </div>
+                            </EditForm>
+                        }
+                        else
+                        {
+                            <div class="court-card-info">
+                                <h3>@court.Name</h3>
+                                <p>@court.Location</p>
+                            </div>
+                            <div class="court-actions">
+                                @if (_courtPendingDeleteId == court.Id)
+                                {
+                                    <span>¿Quieres eliminar esta pista?</span>
+                                    <button class="button button-danger" type="button" @onclick="ConfirmDeleteAsync">Confirmar eliminación</button>
+                                    <button class="button" type="button" @onclick="CancelDelete">Cancelar</button>
+                                }
+                                else
+                                {
+                                    <button class="button" type="button" @onclick="() => StartEdit(court)">Editar</button>
+                                    <button class="button button-danger" type="button" @onclick="() => RequestDelete(court.Id)">Eliminar</button>
+                                }
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</main>
+
+@code {
+    private CourtForm _createForm = new();
+    private CourtForm _editForm = new();
+    private IReadOnlyList<CourtDto>? _courts;
+    private Guid? _editingCourtId;
+    private Guid? _courtPendingDeleteId;
+    private bool _showCreateForm;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCourtsAsync();
+    }
+
+    private void ShowCreateForm()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _showCreateForm = true;
+    }
+
+    private void CancelCreate()
+    {
+        _showCreateForm = false;
+        _createForm = new CourtForm();
+    }
+
+    private async Task CreateCourtAsync()
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            var court = await ApiClient.CreateCourtAsync(
+                new CreateCourtRequestDto(_createForm.Name, _createForm.Location),
+                CancellationToken.None);
+            _courts = (_courts ?? [])
+                .Append(court)
+                .OrderBy(item => item.Name)
+                .ToArray();
+            _createForm = new CourtForm();
+            _showCreateForm = false;
+            _successMessage = "La pista se ha creado correctamente.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private void StartEdit(CourtDto court)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _courtPendingDeleteId = null;
+        _editingCourtId = court.Id;
+        _editForm = new CourtForm { Name = court.Name, Location = court.Location };
+    }
+
+    private void CancelEdit()
+    {
+        _editingCourtId = null;
+        _editForm = new CourtForm();
+    }
+
+    private async Task UpdateCourtAsync()
+    {
+        var courtId = _editingCourtId
+            ?? throw new InvalidOperationException("No hay ninguna pista seleccionada para editar.");
+
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            var updatedCourt = await ApiClient.UpdateCourtAsync(
+                courtId,
+                new UpdateCourtRequestDto(_editForm.Name, _editForm.Location),
+                CancellationToken.None);
+            _courts = (_courts ?? [])
+                .Select(court => court.Id == courtId ? updatedCourt : court)
+                .OrderBy(court => court.Name)
+                .ToArray();
+            _editingCourtId = null;
+            _editForm = new CourtForm();
+            _successMessage = "La pista se ha actualizado correctamente.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private void RequestDelete(Guid courtId)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _editingCourtId = null;
+        _courtPendingDeleteId = courtId;
+    }
+
+    private void CancelDelete()
+    {
+        _courtPendingDeleteId = null;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        var courtId = _courtPendingDeleteId
+            ?? throw new InvalidOperationException("No hay ninguna pista seleccionada para eliminar.");
+
+        _errorMessage = null;
+        _successMessage = null;
+        try
+        {
+            await ApiClient.DeleteCourtAsync(courtId, CancellationToken.None);
+            _courts = (_courts ?? []).Where(court => court.Id != courtId).ToArray();
+            _courtPendingDeleteId = null;
+            _successMessage = "La pista se ha eliminado correctamente.";
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private async Task LoadCourtsAsync()
+    {
+        try
+        {
+            _courts = await ApiClient.GetCourtsAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _courts = [];
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private sealed class CourtForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Indica el nombre de la pista.")]
+        [System.ComponentModel.DataAnnotations.StringLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Indica la ubicación de la pista.")]
+        [System.ComponentModel.DataAnnotations.StringLength(200, ErrorMessage = "La ubicación no puede superar los 200 caracteres.")]
+        public string Location { get; set; } = string.Empty;
+    }
+}
