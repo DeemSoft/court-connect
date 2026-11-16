@@ -1,0 +1,61 @@
+@page "/"
+@page "/games"
+@inject ICourtConnectApiClient ApiClient
+
+<PageTitle>Partidos abiertos</PageTitle>
+
+<main class="page">
+    <header class="page-header">
+        <p class="eyebrow">CourtConnect</p>
+        <h1>Partidos abiertos</h1>
+        <p>Encuentra un partido y reserva tu plaza.</p>
+    </header>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="message message-error" role="alert">@_errorMessage</p>
+    }
+    else if (_games is null)
+    {
+        <p role="status">Cargando partidos…</p>
+    }
+    else if (_games.Count == 0)
+    {
+        <p class="empty-state">No hay partidos abiertos próximamente.</p>
+    }
+    else
+    {
+        <section class="game-list" aria-label="Partidos disponibles">
+            @foreach (var game in _games)
+            {
+                <article class="game-card" @key="game.Id">
+                    <div>
+                        <h2><a href="@($"/games/{game.Id}")">@game.CourtName</a></h2>
+                        <p>@game.StartAt.ToString("f", SpanishCulture)</p>
+                    </div>
+                    <p class="slots">@game.AvailableSlots plazas libres</p>
+                </article>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private static readonly System.Globalization.CultureInfo SpanishCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("es-ES");
+
+    private IReadOnlyList<GameDto>? _games;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _games = await ApiClient.GetGamesAsync(CancellationToken.None);
+        }
+        catch (CourtConnectApiException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+}

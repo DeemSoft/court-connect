@@ -1,0 +1,141 @@
+:root {
+    color-scheme: light;
+    font-family: system-ui, sans-serif;
+    color: #17212b;
+    background: #f5f7fa;
+}
+
+body {
+    margin: 0;
+}
+
+a {
+    color: #075e54;
+}
+
+.page {
+    box-sizing: border-box;
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.eyebrow {
+    color: #52616b;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.game-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.game-card,
+.game-detail {
+    border: 1px solid #d6dee5;
+    border-radius: 0.75rem;
+    background: #fff;
+    padding: 1.25rem;
+}
+
+.game-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.game-card h2 {
+    margin: 0;
+}
+
+.game-card p {
+    margin-bottom: 0;
+}
+
+.slots {
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+.game-detail dl {
+    display: grid;
+    grid-template-columns: minmax(8rem, 1fr) 2fr;
+    gap: 0.75rem 1rem;
+}
+
+.game-detail dt {
+    font-weight: 700;
+}
+
+.game-detail dd {
+    margin: 0;
+}
+
+.message {
+    border-radius: 0.5rem;
+    padding: 0.9rem 1rem;
+}
+
+.message-error {
+    color: #842029;
+    background: #f8d7da;
+}
+
+.message-info {
+    color: #084298;
+    background: #cfe2ff;
+}
+
+.message-success {
+    color: #0f5132;
+    background: #d1e7dd;
+}
+
+.empty-state {
+    padding: 1rem;
+    background: #fff;
+}
+
+.game-context {
+    color: #52616b;
+}
+
+.form-control {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 28rem;
+    margin: 0.5rem 0 1rem;
+    padding: 0.65rem;
+    border: 1px solid #9aa8b2;
+    border-radius: 0.35rem;
+}
+
+.button {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.7rem 1rem;
+    border: 0;
+    border-radius: 0.4rem;
+    color: #fff;
+    background: #075e54;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+@media (max-width: 36rem) {
+    .game-card {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

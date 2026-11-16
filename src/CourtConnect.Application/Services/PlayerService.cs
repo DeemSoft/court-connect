@@ -34,4 +34,10 @@ public sealed class PlayerService(IPlayerRepository players, TimeProvider timePr
 
         return DtoMapper.ToDto(player);
     }
+
+    public async Task<IReadOnlyList<PlayerOptionDto>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var allPlayers = await players.GetAllAsync(cancellationToken);
+        return allPlayers.Select(DtoMapper.ToOptionDto).ToArray();
+    }
 }

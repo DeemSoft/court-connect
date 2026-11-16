@@ -198,6 +198,27 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
     }
 
     [Fact]
+    public async Task GetPlayers_ReturnsOnlySelectionFields()
+    {
+        var player = await CreatePlayerAsync();
+        using var client = fixture.Factory.CreateClient();
+
+        var response = await client.GetAsync("/players");
+        var body = await response.Content.ReadAsStringAsync();
+        var players = JsonSerializer.Deserialize<List<PlayerOptionResponse>>(body, JsonOptions);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(players);
+        var result = Assert.Single(players, item => item.Id == player.Id);
+        Assert.Equal(player.Nickname, result.Nickname);
+        using var document = JsonDocument.Parse(body);
+        var playerJson = Assert.Single(
+            document.RootElement.EnumerateArray(),
+            item => item.GetProperty("id").GetGuid() == player.Id);
+        Assert.Equal(["id", "nickname"], playerJson.EnumerateObject().Select(property => property.Name).Order().ToArray());
+    }
+
+    [Fact]
     public async Task GetPlayer_WhenItDoesNotExist_Returns404()
     {
         using var client = fixture.Factory.CreateClient();
@@ -451,6 +472,8 @@ public sealed class CourtConnectApiTests(SqlServerApiFixture fixture)
         string Status);
 
     private sealed record PlayerResponse(Guid Id, string Nickname, string FullName, DateOnly DateOfBirth, string Email);
+
+    private sealed record PlayerOptionResponse(Guid Id, string Nickname);
 
     private sealed record RegistrationResponse(
         Guid Id,

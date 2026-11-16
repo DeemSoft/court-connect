@@ -16,3 +16,5 @@ public sealed record CreatePlayerRequest(
     string Email);
 
 public sealed record PlayerDto(Guid Id, string Nickname, string FullName, DateOnly DateOfBirth, string Email);
+
+public sealed record PlayerOptionDto(Guid Id, string Nickname);
