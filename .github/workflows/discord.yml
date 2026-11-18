@@ -1,0 +1,37 @@
+
+name: Discord Notifications
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  issues:
+    types: [opened, edited, closed, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          DETAIL_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url || github.event.head_commit.url || github.server_url }}
+        run: |
+          CONTENT="📢 ${EVENT_NAME} en ${REPOSITORY}
+          Autor: ${ACTOR}
+          ${DETAIL_URL}"
+
+          jq -n --arg content "$CONTENT" \
+            '{content: $content}' > payload.json
+
+          curl -fsS \
+            -H "Content-Type: application/json" \
+            -d @payload.json \
+            "$DISCORD_WEBHOOK_URL"
