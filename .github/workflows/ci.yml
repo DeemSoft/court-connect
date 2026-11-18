@@ -61,6 +61,7 @@ jobs:
           /d:sonar.token="$SONAR_TOKEN"
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml"
           /d:sonar.exclusions="**/Migrations/**"
+          /d:sonar.scanner.skipJreProvisioning=true
 
       - name: Compilar la solución
         run: dotnet build CourtConnect.slnx --no-restore
