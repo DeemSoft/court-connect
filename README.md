@@ -23,21 +23,45 @@ dotnet test CourtConnect.slnx --settings coverlet.runsettings --collect:"XPlat C
 
 `global.json` selecciona el SDK 10.0.403 y permite avanzar a otra versión de la misma línea 10.0 cuando sea necesario.
 
-## Base de datos local
+## Ejecutar la aplicación con Docker Compose
 
-Se puede arrancar SQL Server en Docker con:
+Se necesita Docker Desktop en ejecución. Crea el fichero local de variables de entorno a partir de la plantilla y sustituye los dos valores por contraseñas fuertes, únicas y locales:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`.env` contiene la contraseña de SQL Server y la contraseña de las cuentas de desarrollo; está excluido de Git. `.env.example` solo contiene marcadores y no debe usarse sin reemplazarlos. No compartas ni subas tu `.env`.
+
+El puerto SQL publicado por defecto es `1433`. Si ya está ocupado, cambia `MSSQL_HOST_PORT` en `.env` (por ejemplo, a `1434`); para conectarte desde el host usa entonces ese mismo puerto.
+
+Construye las dos imágenes y arranca SQL Server, la API y la web:
+
+```powershell
+docker compose up --build
+```
+
+Abre `http://localhost:8080`. La cuenta organizadora de desarrollo es `organizer@example.com`; las cuentas de jugador son `maria@example.com`, `pau@example.com`, `irene@example.com`, `leo@example.com` y `sara@example.com`. Todas usan el valor local de `IDENTITY_DEVELOPMENT_PASSWORD` de `.env`. La API está disponible en `http://localhost:5258`.
+
+Compose mantiene los datos de SQL Server en el volumen `courtconnect-data`, espera a que SQL Server supere su comprobación de salud antes de iniciar la API y espera a que la API responda antes de iniciar la web. Para detener los servicios conserva los datos con `docker compose down`; `docker compose down -v` también elimina el volumen y la base de datos.
+
+En este entorno local la API usa `Development`: aplica las migraciones al arrancar y crea las cuentas de prueba. Esto evita un paso manual para el ejercicio, pero no es apropiado para producción: si varias réplicas arrancan a la vez pueden competir al aplicar las mismas migraciones. En producción, ejecútalas como un paso de despliegue único y controlado, y no uses las cuentas ni las contraseñas de desarrollo.
+
+## Base de datos para desarrollo local sin Compose completo
+
+También se puede usar solo SQL Server en Docker, después de crear el `.env` descrito arriba:
 
 ```powershell
 docker compose up -d sqlserver
 ```
 
-La cadena de conexión se configura con `dotnet user-secrets` en el proyecto `CourtConnect.Api`:
+Configura la cadena de conexión mediante User Secrets en el proyecto `CourtConnect.Api` (usa el mismo valor local definido para `MSSQL_SA_PASSWORD`):
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=CourtConnect;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False" --project src/CourtConnect.Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost,1433;Database=CourtConnect;User Id=sa;Password=<contraseña-local>;TrustServerCertificate=True;Encrypt=False" --project src/CourtConnect.Api
 ```
 
-No se guarda ninguna contraseña en el repositorio.
+Configura además `Identity:DevelopmentPassword` con `dotnet user-secrets` si quieres crear las cuentas de prueba al arrancar la API localmente.
 
 ## API local
 
@@ -68,6 +92,8 @@ dotnet run --project src/CourtConnect.Ui.Web
 ```
 
 La URL base de la API se configura en `src/CourtConnect.Ui.Web/appsettings.json` (`CourtConnectApi:BaseUrl`).
+
+La CI construye las imágenes de API y web en cada Pull Request y cada push a `main`; no las publica en un registro.
 
 La web permite crear una cuenta de jugador, iniciar sesión y cerrar sesión. La sesión se mantiene con una cookie protegida; el token de Identity permanece en el servidor y se reenvía a la API mediante un `DelegatingHandler`.
 

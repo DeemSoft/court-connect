@@ -12,6 +12,20 @@ permissions:
   contents: read
 
 jobs:
+  build-container-images:
+    name: Build container images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Construir imagen de la API
+        run: docker build --file Dockerfile.api --tag courtconnect-api:${{ github.sha }} .
+
+      - name: Construir imagen de la web
+        run: docker build --file Dockerfile.web --tag courtconnect-web:${{ github.sha }} .
+
   build-and-test:
     name: Build and analyze
     runs-on: ubuntu-latest
