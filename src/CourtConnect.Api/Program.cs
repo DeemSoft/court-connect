@@ -277,7 +277,7 @@ registrations.MapPost("/{registrationId:guid}/cancel", async (
     .WithSummary("Cancel a registration owned by the authenticated player")
     .RequireAuthorization(CourtConnectRoles.Player);
 
-app.Run();
+await app.RunAsync();
 
 static Guid GetIdentityUserId(ClaimsPrincipal user)
 {
@@ -287,4 +287,3 @@ static Guid GetIdentityUserId(ClaimsPrincipal user)
         : throw new InvalidOperationException("The authenticated account has no valid identifier.");
 }
 
-public partial class Program;

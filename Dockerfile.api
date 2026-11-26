@@ -1,0 +1,30 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY global.json Directory.Build.props ./
+COPY src/CourtConnect.Api/CourtConnect.Api.csproj src/CourtConnect.Api/
+COPY src/CourtConnect.Application/CourtConnect.Application.csproj src/CourtConnect.Application/
+COPY src/CourtConnect.Domain/CourtConnect.Domain.csproj src/CourtConnect.Domain/
+COPY src/CourtConnect.Infrastructure/CourtConnect.Infrastructure.csproj src/CourtConnect.Infrastructure/
+RUN dotnet restore src/CourtConnect.Api/CourtConnect.Api.csproj
+
+COPY . .
+RUN dotnet publish src/CourtConnect.Api/CourtConnect.Api.csproj \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish \
+    /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV ASPNETCORE_HTTP_PORTS=8080
+EXPOSE 8080
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "DeemSoft.CourtConnect.Api.dll"]

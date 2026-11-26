@@ -139,3 +139,22 @@ Reescribe estas definiciones con tus palabras y añade un ejemplo concreto de tu
 | **Frontmatter** | Bloque YAML al principio del fichero, entre líneas `---`, con metadatos como nombre, descripción o herramientas. No es el cuerpo de las instrucciones |
 | **Versionado semántico** (*Semantic Versioning*, SemVer) | Versión `MAJOR.MINOR.PATCH`: cambio incompatible, capacidad compatible o corrección. Permite fijar qué referencia está instalada |
 | **Deriva** (*drift*) | Diferencia entre una copia instalada y la versión fuente que declara. Se comprueba comparando SHA-256 de copia, fuente y registro; una versión antigua intacta no tiene deriva |
+
+## Blazor Server
+
+| Término | Qué es |
+| --- | --- |
+| **Circuito** (*circuit*) | Conexión persistente en tiempo real entre el navegador y el servidor que mantiene el estado de los componentes interactivos de cada usuario. En CourtConnect, el panel del organizador (`OrganizerDashboard`, `OrganizerNewGame`, etc.) usa circuitos porque necesita actualizar datos sin recargar la página |
+| **AuthenticationStateProvider** (*authentication state provider*) | Servicio de Blazor que proporciona el estado actual de autenticación del usuario (si está autenticado, quién es y qué claims tiene). En CourtConnect, `AccessTokenHandler` lo usa para extraer el token de acceso y enviarlo a la API en cada petición |
+| **AuthorizeView** (*authorize view*) | Componente de Blazor que renderiza contenido de forma condicional según el estado de autenticación y los roles del usuario. Permite mostrar diferentes secciones (`<Authorized>`, `<NotAuthorized>`) según quién visite la página. En CourtConnect, `MainLayout` lo usa para mostrar el enlace al panel solo a organizadores y las opciones de login solo a usuarios no autenticados |
+| **QuickGrid** (*quick grid*) | Componente de Blazor que renderiza una tabla interactiva con soporte para ordenación y filtrado. En CourtConnect, `OrganizerDashboard` lo usa para mostrar los partidos del organizador con columnas ordenables (pista, fecha, plazas ocupadas, estado) sin necesidad de recargar la página |
+
+## Docker y Compose
+
+| Término | Qué es |
+| --- | --- |
+| **Dockerfile** | Fichero con instrucciones para construir una imagen de contenedor |
+| **Construcción multi-stage** (*multi-stage build*) | Construcción que usa una etapa con SDK para compilar y otra con solo el runtime para ejecutar, reduciendo la imagen final |
+| **Red de Compose** (*Compose network*) | Red privada en la que los servicios se encuentran por el nombre del servicio, como `api` o `sqlserver` |
+| **Variable de entorno** (*environment variable*) | Configuración proporcionada al proceso desde fuera de su código; Compose puede leerla desde un `.env` local |
+| **Comprobación de salud** (*healthcheck*) | Prueba periódica que indica si un contenedor está preparado para atender dependencias |
